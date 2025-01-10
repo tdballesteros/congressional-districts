@@ -2,7 +2,6 @@
 ### load libraries ----------------------------------------------------------------------
 
 library(readxl)
-# library(maptools)
 library(sf)
 library(igraph)
 library(RColorBrewer)
@@ -13,24 +12,19 @@ library(tidyverse)
 
 '%!in%' <- function(x,y)!('%in%'(x,y))
 
-
 ### load data ----------------------------------------------------------------------
 
 # adjacency matrix
-adj <- read.csv("~/R/Voting/adj2.csv",
+adj <- read.csv("Data/adj2.csv",
                 colClasses = "character")
 
-tract_data <- read.csv("~/R/Voting/BlockGr.csv")
-# pops -> tract_data
+# tract list with populations
+tract_data <- read.csv("Data/BlockGr.csv")
 
+# Ohio shapefile
 area <- sf::read_sf(
-  dsn = "~/Downloads/gz_2010_39_140_00_500k/gz_2010_39_140_00_500k.shp") %>%
+  dsn = "Data/gz_2010_39_140_00_500k/gz_2010_39_140_00_500k.shp") %>%
   dplyr::rename_with(tolower, -starts_with("GEO_ID"))
-
-
-main_df <- read.csv("~/R/Congressional Districts/Old Files/Data/newdist24.csv") %>%
-  dplyr::mutate(Id = as.character(Id))
-
 
 ### format data ----------------------------------------------------------------------
 
@@ -48,7 +42,7 @@ pop2 <- tract_data %>%
   
   # Ohio FIPS code is 39
   dplyr::filter(stateid == 39)
-  
+
 pop <- pop2 %>%
   dplyr::mutate(geoid = str_sub(geoid, -12, -2)) %>%
   dplyr::group_by(geoid) %>%
@@ -63,7 +57,7 @@ rand <- sample(tract_list, 1)
 tract_df <- data.frame(
   tract = tract_list,
   dist = NA
-  )
+)
 
 
 ### functions ----------------------------------------------------------------------
@@ -77,7 +71,7 @@ nextcircle <- function(x, adjdf = adj){
     dplyr::filter(
       SOURCE_TRACTID %in% x,
       NEIGHBOR_TRACTID %!in% x
-      ) %>%
+    ) %>%
     dplyr::pull(NEIGHBOR_TRACTID) %>%
     unique()
   
@@ -119,7 +113,7 @@ tractdist <- function(tracts, adjdf = adj, popdf = pop){
   
   # while there are still distances to calculate...
   while(length(list_todo) > 0){
-
+    
     next_circle <- nextcircle(list_done, adjdf)
     
     output <- output %>%
@@ -129,11 +123,11 @@ tractdist <- function(tracts, adjdf = adj, popdf = pop){
         .default = dist
       ))
     
-
+    
     list_done <- c(list_done, next_circle)
     list_todo <- list_todo[!list_todo %in% next_circle]
     d <- d + 1
-
+    
   }
   
   return(output)
@@ -426,7 +420,7 @@ pop2 <- pop2 %>%
   dplyr::mutate(
     GEO_ID = str_sub(pop2$geoid, 8, 18),
     block2 = paste0(GEO_ID,block)
-    ) %>%
+  ) %>%
   dplyr::select(GEO_ID, block2)
 
 
@@ -668,27 +662,25 @@ map <- pop_final %>%
   dplyr::left_join(area,
                    by = "GEO_ID") %>%
   dplyr::mutate(color = dplyr::case_when(
-      district == 1 ~ "dodgerblue3",
-      district == 2 ~ "firebrick2",
-      district == 3 ~ "chartreuse2",
-      district == 4 ~ "darkorchid3",
-      district == 5 ~ "darkslategray4",
-      district == 6 ~ "orange2",
-      district == 7 ~ "lightsalmon",
-      district == 8 ~ "hotpink1",
-      district == 9 ~ "turquoise",
-      district == 10 ~ "darkseagreen2",
-      district == 11 ~ "lightblue3",
-      district == 12 ~ "mediumorchid1",
-      district == 13 ~ "plum",
-      district == 14 ~ "ivory2",
-      district == 15 ~ "goldenrod",
-      district == 16 ~ "olivedrab3",
-      .default = "white"
-    )) %>%
-    st_as_sf %>%
-    ggplot2::ggplot() +
-    ggplot2::geom_sf(ggplot2::aes(fill = color))
-  
-  
+    district == 1 ~ "dodgerblue3",
+    district == 2 ~ "firebrick2",
+    district == 3 ~ "chartreuse2",
+    district == 4 ~ "darkorchid3",
+    district == 5 ~ "darkslategray4",
+    district == 6 ~ "orange2",
+    district == 7 ~ "lightsalmon",
+    district == 8 ~ "hotpink1",
+    district == 9 ~ "turquoise",
+    district == 10 ~ "darkseagreen2",
+    district == 11 ~ "lightblue3",
+    district == 12 ~ "mediumorchid1",
+    district == 13 ~ "plum",
+    district == 14 ~ "ivory2",
+    district == 15 ~ "goldenrod",
+    district == 16 ~ "olivedrab3",
+    .default = "white"
+  )) %>%
+  st_as_sf %>%
+  ggplot2::ggplot() +
+  ggplot2::geom_sf(ggplot2::aes(fill = color))
 
