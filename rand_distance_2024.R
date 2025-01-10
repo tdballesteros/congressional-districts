@@ -19,7 +19,7 @@ adj <- read.csv("Data/adj2.csv",
                 colClasses = "character")
 
 # tract list with populations
-tract_data <- read.csv("Data/BlockGr.csv")
+tract_data <- read.csv("/Users/timmyballesteros/Documents/backup tmp/Data/BlockGr.csv")
 
 # Ohio shapefile
 area <- sf::read_sf(
