@@ -12,6 +12,7 @@ library(tidyverse)
 
 '%!in%' <- function(x,y)!('%in%'(x,y))
 
+
 ### load data ----------------------------------------------------------------------
 
 # adjacency matrix
@@ -25,6 +26,7 @@ tract_data <- read.csv("/Users/timmyballesteros/Documents/backup tmp/Data/BlockG
 area <- sf::read_sf(
   dsn = "Data/gz_2010_39_140_00_500k/gz_2010_39_140_00_500k.shp") %>%
   dplyr::rename_with(tolower, -starts_with("GEO_ID"))
+
 
 ### format data ----------------------------------------------------------------------
 
@@ -50,6 +52,14 @@ pop <- pop2 %>%
   dplyr::ungroup() %>%
   dplyr::rename(GEO_ID = geoid)
 
+pop2 <- pop2 %>%
+  dplyr::select(geoid, block) %>%
+  dplyr::mutate(
+    GEO_ID = str_sub(pop2$geoid, 8, 18),
+    block2 = paste0(GEO_ID,block)
+  ) %>%
+  dplyr::select(GEO_ID, block2)
+
 # other setup
 
 tract_list <- unique(adj$SOURCE_TRACTID)
@@ -62,28 +72,10 @@ tract_df <- data.frame(
 
 ### functions ----------------------------------------------------------------------
 
-# pull all tracts adjacent to a given tract
-nextcircle <- function(x, adjdf = adj){
-  
-  x <- as.character(x)
-  
-  tmp_list <- adjdf %>%
-    dplyr::filter(
-      SOURCE_TRACTID %in% x,
-      NEIGHBOR_TRACTID %!in% x
-    ) %>%
-    dplyr::pull(NEIGHBOR_TRACTID) %>%
-    unique()
-  
-  return(tmp_list)
-  
-}
-
-
 tractdist <- function(tracts, adjdf = adj, popdf = pop){
   
   # test for contiguousness
-  if(isContig2(popdf$GEO_ID, adjdf) == 0){
+  if(isContig(popdf$GEO_ID, adjdf) == 0){
     return("Data not contiguous.")
   }
   
@@ -110,19 +102,24 @@ tractdist <- function(tracts, adjdf = adj, popdf = pop){
   # set tract1 dist equal to 0
   output$dist[output$GEO_ID %in% tracts] <- 0
   
-  
   # while there are still distances to calculate...
   while(length(list_todo) > 0){
     
-    next_circle <- nextcircle(list_done, adjdf)
-    
+    # pull all tracts adjacent to a given tract
+      next_circle <- adjdf %>%
+        dplyr::filter(
+          SOURCE_TRACTID %in% list_done,
+          NEIGHBOR_TRACTID %!in% list_done
+        ) %>%
+        dplyr::pull(NEIGHBOR_TRACTID) %>%
+        unique()
+  
     output <- output %>%
       dplyr::rowwise() %>%
       dplyr::mutate(dist = dplyr::case_when(
         is.na(dist) & GEO_ID %in% next_circle ~ d,
         .default = dist
       ))
-    
     
     list_done <- c(list_done, next_circle)
     list_todo <- list_todo[!list_todo %in% next_circle]
@@ -135,41 +132,55 @@ tractdist <- function(tracts, adjdf = adj, popdf = pop){
 }
 
 
-# isContig bubble version from isContig.R file
-# test if any breaks are within a list of tracts
-isContig2 <- function(list, adjdf = adj){
+# test if all tracts in a given list are contiguous based
+# on a given adjacency matrix
+isContig <- function(list, adjdf = adj){
   
   list <- as.character(list)
   
+  # select a random tract from the adjacency matrix as a starting point
   start <- sample(list,1)
-  list2 <- c(start)
   
-  # start w/ list2
-  # find all adj
-  # make list3
-  # break if length(list2) == length(list3)
-  
+  # create a list to add connected tracts to
+  list_identified <- c(start)
+
+  # set non-equal dummy values, later replaced by the number of
+  # connected tracts (l2) and number of tracts not in the list
+  # adjacent to those tracts (l3)
   l2 <- 1
   l3 <- 0
   
-  while(l2 != l3){
-    list_grow <- adjdf %>%
-      dplyr::filter(SOURCE_TRACTID %in% list2)
-    
-    list_grow <- unique(list_grow$NEIGHBOR_TRACTID)
-    
-    list3 <- unique(c(list2,list_grow))
-    l2 <- length(list2)
-    l3 <- length(list3)
-    list2 <- list3
-  }
+  # set dummy value, later replaced by the number of adjacent tracts
+  # not already identified
+  growth_length <- 1
   
-  if(length(list3) < length(list)){
-    return(0)
+  # while there are new tracts being added...
+  while(growth_length != 0){
+    
+    growth_list <- adjdf %>%
+      dplyr::filter(
+        # adjacency for all tracts identified...
+        SOURCE_TRACTID %in% list_identified,
+        # ...but the neighbor is not identified
+        !NEIGHBOR_TRACTID %in% list_identified) %>%
+      dplyr::pull(NEIGHBOR_TRACTID) %>%
+      unique()
+    
+    # add adjacent tracts to the list of identified tracts
+    list_identified <- c(list_identified, growth_list)
+    
+    # calculate the number of newly added tracts
+    growth_length <- length(growth_list)
+    
   }
-  else{
-    return(1)
-  }
+    
+    if(length(list_identified) < length(list)){
+      return(0)
+    }
+    else{
+      return(1)
+    }
+  
 }
 
 
@@ -267,41 +278,25 @@ splitIntoTwo <- function(df = pop, adjdf = adj){
   pop_half_b <- sum(half_b$CIT_EST)
   beta <- unique(half_b$GEO_ID)
   
-  # create an empty df that has the midpoint tracts listed
-  whichside <- data.frame(GEO_ID = split_list, alif = NA, ba = NA)
-  
-  # for each tract in the above dataframe...
-  for(i in 1:nrow(whichside)){
-    
-    # can this be a dplyr::mutate?
-    # adj_alpha <- adjdf %>%
-    #   dplyr::filter(SOURCE_TRACTID == as.character(whichside$GEO_ID[i])) %>%
-    #   dplyr::pull(NEIGHBOR_TRACTID) %>%
-    #   unique()[
-    #     adjdf %>%
-    #       dplyr::filter(SOURCE_TRACTID == as.character(whichside$GEO_ID[i])) %>%
-    #       dplyr::pull(NEIGHBOR_TRACTID) %>%
-    #       unique() %in% alpha] %>%
-    #   length()
-    
-    # create an adjacency matrix for just the ith tract
-    adj_tmp <- adjdf %>%
-      dplyr::filter(SOURCE_TRACTID == as.character(whichside$GEO_ID[i]))
-    
-    # get a unique list of all the adjacent tracts
-    adj_tmp <- unique(adj_tmp$NEIGHBOR_TRACTID)
-    
-    # list of tracts in Side A that are adjacent to the ith tract
-    adj_alpha <- adj_tmp[adj_tmp %in% alpha]
-    # list of tracts in Side B that are adjacent to the ith tract
-    adj_beta <- adj_tmp[adj_tmp %in% beta]
-    
-    # calculate and add to dataframe how many adjacent tracts are in
-    # Side A and Side B
-    whichside$alif[i] <- length(adj_alpha)
-    whichside$ba[i] <- length(adj_beta)
-    
-  }
+  # create a df that has the midpoint tracts listed
+  whichside <- data.frame(GEO_ID = split_list) %>%
+    dplyr::rowwise() %>%
+    # for each tract, calculate how many neighboring tracts it has
+    # in the adjacency matrix that are in alpha/beta lists, respectively
+    dplyr::mutate(
+      alif = adjdf %>%
+        dplyr::filter(
+          SOURCE_TRACTID == as.character(GEO_ID),
+          NEIGHBOR_TRACTID %in% alpha) %>%
+        unique() %>%
+        nrow(),
+      ba = adjdf %>%
+        dplyr::filter(
+          SOURCE_TRACTID == as.character(GEO_ID),
+          NEIGHBOR_TRACTID %in% beta) %>%
+        unique() %>%
+        nrow()
+      )
   
   # while the population is <= the population target...
   while(pop_half_a <= sum_goal){
@@ -355,7 +350,6 @@ splitIntoTwo <- function(df = pop, adjdf = adj){
     pop_half_a <- sum(half_a$CIT_EST, na.rm = TRUE)
   }
   
-  
   # in the original df, code tracts as within Side A
   # or Side B
   tdf <- tdf %>%
@@ -396,10 +390,8 @@ splitIntoTwo <- function(df = pop, adjdf = adj){
     )
   
   # test if Side A and Side B are both contiguous
-  sideA_contig <- isContig2(half1_list,adj_half1)
-  sideB_contig <- isContig2(half2_list,adj_half2)
-  # the function will only break if both are contiguous
-  #}
+  sideA_contig <- isContig(half1_list,adj_half1)
+  sideB_contig <- isContig(half2_list,adj_half2)
   
   output <- list(pop_half1, pop_half2, adj_half1, adj_half2)
   
@@ -413,18 +405,7 @@ splitIntoTwo <- function(df = pop, adjdf = adj){
 }
 
 
-### use data ----------------------------------------------------------------------
-
-pop2 <- pop2 %>%
-  dplyr::select(geoid, block) %>%
-  dplyr::mutate(
-    GEO_ID = str_sub(pop2$geoid, 8, 18),
-    block2 = paste0(GEO_ID,block)
-  ) %>%
-  dplyr::select(GEO_ID, block2)
-
-
-#### Split 1: Two Parts ----------------------------------------------------------------------
+### Split 1: Two Parts ----------------------------------------------------------------------
 
 split1 <- splitIntoTwo(pop, adj)
 pop_half1 <- split1[[1]]
@@ -437,9 +418,10 @@ adj_half2 <- split1[[4]]
 sum(pop_half1$CIT_EST, na.rm = TRUE)
 sum(pop_half2$CIT_EST, na.rm = TRUE)
 
-#### Split 2: Four Parts ----------------------------------------------------------------------
 
-##### Split 2A --------------------------------------------------------------------------------
+### Split 2: Four Parts ----------------------------------------------------------------------
+
+#### Split 2A --------------------------------------------------------------------------------
 # Split Half1 into Quarter1 and Quarter2
 
 split2a <- splitIntoTwo(pop_half1, adj_half1)
@@ -449,7 +431,7 @@ pop_quarter2 <- split2a[[2]]
 adj_quarter1 <- split2a[[3]]
 adj_quarter2 <- split2a[[4]]
 
-##### Split 2B --------------------------------------------------------------------------------
+#### Split 2B --------------------------------------------------------------------------------
 # Split Half2 into Quarter3 and Quarter4
 
 split2b <- splitIntoTwo(pop_half2, adj_half2)
@@ -459,7 +441,7 @@ pop_quarter4 <- split2b[[2]]
 adj_quarter3 <- split2b[[3]]
 adj_quarter4 <- split2b[[4]]
 
-##### Split 2 Populations --------------------------------------------------------------------------------
+#### Split 2 Populations --------------------------------------------------------------------------------
 
 # population totals for each quarter
 sum(pop_quarter1$CIT_EST, na.rm = TRUE)
@@ -468,9 +450,9 @@ sum(pop_quarter3$CIT_EST, na.rm = TRUE)
 sum(pop_quarter4$CIT_EST, na.rm = TRUE)
 
 
-#### Split 3: Eight Parts ----------------------------------------------------------------------
+### Split 3: Eight Parts ----------------------------------------------------------------------
 
-##### Split 3A --------------------------------------------------------------------------------
+#### Split 3A --------------------------------------------------------------------------------
 # Split Quarter1 into Eigth1 and Eigth2
 
 split3a <- splitIntoTwo(pop_quarter1, adj_quarter1)
@@ -480,7 +462,7 @@ pop_eigth2 <- split3a[[2]]
 adj_eigth1 <- split3a[[3]]
 adj_eigth2 <- split3a[[4]]
 
-##### Split 3B --------------------------------------------------------------------------------
+#### Split 3B --------------------------------------------------------------------------------
 # Split Quarter2 into Eigth3 and Eigth4
 
 split3b <- splitIntoTwo(pop_quarter2, adj_quarter2)
@@ -490,7 +472,7 @@ pop_eigth4 <- split3b[[2]]
 adj_eigth3 <- split3b[[3]]
 adj_eigth4 <- split3b[[4]]
 
-##### Split 3C --------------------------------------------------------------------------------
+#### Split 3C --------------------------------------------------------------------------------
 # Split Quarter3 into Eigth5 and Eigth6
 
 split3c <- splitIntoTwo(pop_quarter3, adj_quarter3)
@@ -500,7 +482,7 @@ pop_eigth6 <- split3c[[2]]
 adj_eigth5 <- split3c[[3]]
 adj_eigth6 <- split3c[[4]]
 
-##### Split 3D --------------------------------------------------------------------------------
+#### Split 3D --------------------------------------------------------------------------------
 # Split Quarter4 into Eigth7 and Eigth8
 
 split3d <- splitIntoTwo(pop_quarter4, adj_quarter4)
@@ -510,7 +492,7 @@ pop_eigth8 <- split3d[[2]]
 adj_eigth7 <- split3d[[3]]
 adj_eigth8 <- split3d[[4]]
 
-##### Split 3 Populations --------------------------------------------------------------------------------
+#### Split 3 Populations --------------------------------------------------------------------------------
 
 # population totals for each quarter
 sum(pop_eigth1$CIT_EST, na.rm = TRUE)
@@ -523,9 +505,9 @@ sum(pop_eigth7$CIT_EST, na.rm = TRUE)
 sum(pop_eigth8$CIT_EST, na.rm = TRUE)
 
 
-#### Split 4: Sixteen Parts ----------------------------------------------------------------------
+### Split 4: Sixteen Parts ----------------------------------------------------------------------
 
-##### Split 3A --------------------------------------------------------------------------------
+#### Split 3A --------------------------------------------------------------------------------
 # Split Eigth1 into Sixteenth1 and Sixteenth2
 
 split4a <- splitIntoTwo(pop_eigth1, adj_eigth1)
@@ -535,7 +517,7 @@ pop_sixteenth2 <- split4a[[2]]
 adj_sixteenth1 <- split4a[[3]]
 adj_sixteenth2 <- split4a[[4]]
 
-##### Split 3B --------------------------------------------------------------------------------
+#### Split 3B --------------------------------------------------------------------------------
 # Split Eigth2 into Sixteenth3 and Sixteenth4
 
 split4b <- splitIntoTwo(pop_eigth2, adj_eigth2)
@@ -545,7 +527,7 @@ pop_sixteenth4 <- split4b[[2]]
 adj_sixteenth3 <- split4b[[3]]
 adj_sixteenth4 <- split4b[[4]]
 
-##### Split 3C --------------------------------------------------------------------------------
+#### Split 3C --------------------------------------------------------------------------------
 # Split Eigth3 into Sixteenth5 and Sixteenth6
 
 split4c <- splitIntoTwo(pop_eigth3, adj_eigth3)
@@ -555,7 +537,7 @@ pop_sixteenth6 <- split4c[[2]]
 adj_sixteenth5 <- split4c[[3]]
 adj_sixteenth6 <- split4c[[4]]
 
-##### Split 3D --------------------------------------------------------------------------------
+#### Split 3D --------------------------------------------------------------------------------
 # Split Eigth4 into Sixteenth7 and Sixteenth8
 
 split4d <- splitIntoTwo(pop_eigth4, adj_eigth4)
@@ -565,7 +547,7 @@ pop_sixteenth8 <- split4d[[2]]
 adj_sixteenth7 <- split4d[[3]]
 adj_sixteenth8 <- split4d[[4]]
 
-##### Split 3E --------------------------------------------------------------------------------
+#### Split 3E --------------------------------------------------------------------------------
 # Split Eigth5 into Sixteenth9 and Sixteenth10
 
 split4e <- splitIntoTwo(pop_eigth5, adj_eigth5)
@@ -575,7 +557,7 @@ pop_sixteenth10 <- split4e[[2]]
 adj_sixteenth9 <- split4e[[3]]
 adj_sixteenth10 <- split4e[[4]]
 
-##### Split 3F --------------------------------------------------------------------------------
+#### Split 3F --------------------------------------------------------------------------------
 # Split Eigth6 into Sixteenth11 and Sixteenth12
 
 split4f <- splitIntoTwo(pop_eigth6, adj_eigth6)
@@ -585,7 +567,7 @@ pop_sixteenth12 <- split4f[[2]]
 adj_sixteenth11 <- split4f[[3]]
 adj_sixteenth12 <- split4f[[4]]
 
-##### Split 3G --------------------------------------------------------------------------------
+#### Split 3G --------------------------------------------------------------------------------
 # Split Eigth7 into Sixteenth13 and Sixteenth14
 
 split4g <- splitIntoTwo(pop_eigth7, adj_eigth7)
@@ -595,7 +577,7 @@ pop_sixteenth14 <- split4g[[2]]
 adj_sixteenth13 <- split4g[[3]]
 adj_sixteenth14 <- split4g[[4]]
 
-##### Split 3H --------------------------------------------------------------------------------
+#### Split 3H --------------------------------------------------------------------------------
 # Split Eigth8 into Sixteenth15 and Sixteenth16
 
 split4h <- splitIntoTwo(pop_eigth8, adj_eigth8)
@@ -605,7 +587,7 @@ pop_sixteenth16 <- split4h[[2]]
 adj_sixteenth15 <- split4h[[3]]
 adj_sixteenth16 <- split4h[[4]]
 
-##### Split 4 Populations --------------------------------------------------------------------------------
+#### Split 4 Populations --------------------------------------------------------------------------------
 
 # population totals for each quarter
 sum(pop_sixteenth1$CIT_EST, na.rm = TRUE)
@@ -626,7 +608,7 @@ sum(pop_sixteenth15$CIT_EST, na.rm = TRUE)
 sum(pop_sixteenth16$CIT_EST, na.rm = TRUE)
 
 
-#### Create Final Dataset ----------------------------------------------------------------------
+### Create Final Dataset ----------------------------------------------------------------------
 
 pop_final <- pop %>%
   dplyr::mutate(
@@ -654,7 +636,7 @@ pop_final <- pop %>%
 # table(pop_final$district, useNA = "always")
 
 
-#### Create Map ----------------------------------------------------------------------
+### Create Map -----------------------------------------------------------------------
 
 map <- pop_final %>%
   # merge tract prefix to GEO_ID prior to merging
