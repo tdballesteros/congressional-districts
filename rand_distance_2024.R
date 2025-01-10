@@ -507,7 +507,7 @@ sum(pop_eigth8$CIT_EST, na.rm = TRUE)
 
 ### Split 4: Sixteen Parts ----------------------------------------------------------------------
 
-#### Split 3A --------------------------------------------------------------------------------
+#### Split 4A --------------------------------------------------------------------------------
 # Split Eigth1 into Sixteenth1 and Sixteenth2
 
 split4a <- splitIntoTwo(pop_eigth1, adj_eigth1)
@@ -517,7 +517,7 @@ pop_sixteenth2 <- split4a[[2]]
 adj_sixteenth1 <- split4a[[3]]
 adj_sixteenth2 <- split4a[[4]]
 
-#### Split 3B --------------------------------------------------------------------------------
+#### Split 4B --------------------------------------------------------------------------------
 # Split Eigth2 into Sixteenth3 and Sixteenth4
 
 split4b <- splitIntoTwo(pop_eigth2, adj_eigth2)
@@ -527,7 +527,7 @@ pop_sixteenth4 <- split4b[[2]]
 adj_sixteenth3 <- split4b[[3]]
 adj_sixteenth4 <- split4b[[4]]
 
-#### Split 3C --------------------------------------------------------------------------------
+#### Split 4C --------------------------------------------------------------------------------
 # Split Eigth3 into Sixteenth5 and Sixteenth6
 
 split4c <- splitIntoTwo(pop_eigth3, adj_eigth3)
@@ -537,7 +537,7 @@ pop_sixteenth6 <- split4c[[2]]
 adj_sixteenth5 <- split4c[[3]]
 adj_sixteenth6 <- split4c[[4]]
 
-#### Split 3D --------------------------------------------------------------------------------
+#### Split 4D --------------------------------------------------------------------------------
 # Split Eigth4 into Sixteenth7 and Sixteenth8
 
 split4d <- splitIntoTwo(pop_eigth4, adj_eigth4)
@@ -547,7 +547,7 @@ pop_sixteenth8 <- split4d[[2]]
 adj_sixteenth7 <- split4d[[3]]
 adj_sixteenth8 <- split4d[[4]]
 
-#### Split 3E --------------------------------------------------------------------------------
+#### Split 4E --------------------------------------------------------------------------------
 # Split Eigth5 into Sixteenth9 and Sixteenth10
 
 split4e <- splitIntoTwo(pop_eigth5, adj_eigth5)
@@ -557,7 +557,7 @@ pop_sixteenth10 <- split4e[[2]]
 adj_sixteenth9 <- split4e[[3]]
 adj_sixteenth10 <- split4e[[4]]
 
-#### Split 3F --------------------------------------------------------------------------------
+#### Split 4F --------------------------------------------------------------------------------
 # Split Eigth6 into Sixteenth11 and Sixteenth12
 
 split4f <- splitIntoTwo(pop_eigth6, adj_eigth6)
@@ -567,7 +567,7 @@ pop_sixteenth12 <- split4f[[2]]
 adj_sixteenth11 <- split4f[[3]]
 adj_sixteenth12 <- split4f[[4]]
 
-#### Split 3G --------------------------------------------------------------------------------
+#### Split 4G --------------------------------------------------------------------------------
 # Split Eigth7 into Sixteenth13 and Sixteenth14
 
 split4g <- splitIntoTwo(pop_eigth7, adj_eigth7)
@@ -577,7 +577,7 @@ pop_sixteenth14 <- split4g[[2]]
 adj_sixteenth13 <- split4g[[3]]
 adj_sixteenth14 <- split4g[[4]]
 
-#### Split 3H --------------------------------------------------------------------------------
+#### Split 4H --------------------------------------------------------------------------------
 # Split Eigth8 into Sixteenth15 and Sixteenth16
 
 split4h <- splitIntoTwo(pop_eigth8, adj_eigth8)
@@ -634,6 +634,8 @@ pop_final <- pop %>%
   )
 
 # table(pop_final$district, useNA = "always")
+
+write.csv(pop_final, "output1.csv", row.names = FALSE)
 
 
 ### Create Map -----------------------------------------------------------------------
