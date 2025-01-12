@@ -16,6 +16,7 @@ library(tidyverse)
 ### load data ----------------------------------------------------------------------
 
 # adjacency matrix
+# source: https://s4.ad.brown.edu/projects/diversity/Researcher/Pooling.htm
 adj <- read.csv("Data/adj2.csv",
                 colClasses = "character")
 
