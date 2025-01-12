@@ -187,7 +187,7 @@ isContig <- function(list, adjdf = adj){
 splitIntoTwo <- function(df = pop, adjdf = adj){
   
   # test if the input df is contiguous
-  if(isContig2(pop$GEO_ID, adj) == 0){
+  if(isContig(pop$GEO_ID, adj) == 0){
     
     return(paste("Error: Input Not Contiguous"))
     
@@ -635,7 +635,7 @@ pop_final <- pop %>%
 
 # table(pop_final$district, useNA = "always")
 
-write.csv(pop_final, "output1.csv", row.names = FALSE)
+write.csv(pop_final, "District Outputs/output02.csv", row.names = FALSE)
 
 
 ### Create Map -----------------------------------------------------------------------
