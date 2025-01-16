@@ -16,11 +16,11 @@ library(tidyverse)
 ### load data ----------------------------------------------------------------------
 
 # adj2acency matrix
-adj <- read.csv("Data/adj2.csv",
+adj <- read.csv("Data/adjacency_list_tracts_2000.csv",
                 colClasses = "character")
 
 # tract list with populations
-tract_data <- read.csv("Data/BlockGr_Ohio.csv")
+tract_data <- read.csv("Data/population_data_2000_by_tract.csv")
 
 # Ohio shapefile
 area <- sf::read_sf(
