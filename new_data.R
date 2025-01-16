@@ -12,6 +12,6 @@ votecombo <- dplyr::full_join(vote,output,dplyr::join_by("GEOID10"=="Geography")
     total_08 = sum(total_08, na.rm = TRUE),
     pres_dvote_08 = sum(pres_dvote08, na.rm = TRUE),
     pres_rvote_08 = sum(pres_rvote08, na.rm = TRUE),
-    pres_tvote_08 = sum(pres_tvote_08, na.rm = TRUE)
+    pres_tvote_08 = sum(pres_tvote_08, na.rm = TRUE),
     two_party_vote = pres_dvote_08 + pres_rvote_08
   )

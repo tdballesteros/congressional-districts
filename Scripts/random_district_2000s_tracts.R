@@ -1,4 +1,6 @@
 
+# This data uses Ohio's 2000 Census tracts and population data to construct 16 Congressional districts.
+
 ### load libraries ----------------------------------------------------------------------
 
 library(readxl)
