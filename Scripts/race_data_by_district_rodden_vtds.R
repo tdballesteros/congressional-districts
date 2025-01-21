@@ -61,10 +61,19 @@ pop_vtds <- oh2010 %>%
   dplyr::select(Geography, fips_county, fips_tract, Population, White, Black, Asian,
                 NHPI, AIAN, `Two or More Races`, Other)
 
-### race data ----------------------------------------------------------------------
+### race/population data ----------------------------------------------------------------------
+
+district_target_population <- sum(pop_vtds$Population, na.rm = TRUE) / 16
+
 districts_race_data <- dplyr::full_join(output, pop_vtds, dplyr::join_by("GEO_ID" == "Geography")) %>%
-  dplyr::mutate(missing_race_data_flag = is.na(Population)) %>%
-  dplyr::group_by(district, missing_race_data_flag) %>%
+  dplyr::mutate(
+    District = factor(district,
+                      levels = c("1", "2", "3", "4", "5", "6", "7", "8",
+                                 "9", "10", "11", "12", "13", "14", "15",
+                                 "16", "Ohio Total")),
+    `Missing Race Data Flag` = is.na(Population)
+    ) %>%
+  dplyr::group_by(District, `Missing Race Data Flag`) %>%
   dplyr::summarise(
     Population = sum(Population, na.rm = TRUE),
     `White %` = 100 * sum(White, na.rm = TRUE) / Population,
@@ -77,24 +86,49 @@ districts_race_data <- dplyr::full_join(output, pop_vtds, dplyr::join_by("GEO_ID
     `Non-White %` = 100 - `White %`
   ) %>%
   dplyr::ungroup() %>%
-  dplyr::mutate(district = as.numeric(district)) %>%
-  dplyr::arrange(district)
+  dplyr::arrange(District) %>%
+  # add row for total Ohio statistics
+  tibble::add_row(
+    District = "Ohio Total",
+    `Missing Race Data Flag` = FALSE,
+    Population = sum(pop_vtds$Population, na.rm = TRUE),
+    `White %` = 100 * sum(pop_vtds$White, na.rm = TRUE) / Population,
+    `Black %` = 100 * sum(pop_vtds$Black, na.rm = TRUE) / Population,
+    `Asian %` = 100 * sum(pop_vtds$Asian, na.rm = TRUE) / Population,
+    `NHPI %` = 100 * sum(pop_vtds$NHPI, na.rm = TRUE) / Population,
+    `AIAN %` = 100 * sum(pop_vtds$AIAN, na.rm = TRUE) / Population,
+    `Two or More Races %` = 100 * sum(pop_vtds$`Two or More Races`, na.rm = TRUE) / Population,
+    `Other %` = 100 * sum(pop_vtds$Other, na.rm = TRUE) / Population,
+    `Non-White %` = 100 - `White %`
+  ) %>%
+  # add Race Score, where % white - % non-white is classified based on:
+  # < 0 (majority-minority) - 0
+  # [0, 45) - 1
+  # [45, 60) - 2
+  # [60, 70) - 3
+  # [70, 85) - 4
+  # > 85 - 5
+  dplyr::mutate(
+    `White % Minus Non-White %` = `White %` - `Non-White %`,
+    `Race Score` = dplyr::case_when(
+      `White % Minus Non-White %` < 0 ~ 0,
+      `White % Minus Non-White %` >= 0 &
+        `White % Minus Non-White %` < 45 ~ 1,
+      `White % Minus Non-White %` >= 45 &
+        `White % Minus Non-White %` < 60 ~ 2,
+      `White % Minus Non-White %` >= 60 &
+        `White % Minus Non-White %` < 70 ~ 3,
+      `White % Minus Non-White %` >= 70 &
+        `White % Minus Non-White %` < 85 ~ 4,
+      `White % Minus Non-White %` >= 85 ~ 5,
+      .default = NA
+    ),
+    # for districts without missing data, calculate population relative to
+    # target population ratio
+    `Population Target Ratio` = dplyr::case_when(
+      `Missing Race Data Flag` == FALSE & District %in% c(1:16) ~ 100 * Population / district_target_population,
+      .default = NA
+    ))
 
-
-### population sizes ----------------------------------------------------------------------
-district_target_population <- sum(pop_vtds$Population, na.rm = TRUE) / 16
-
-districts_population_data <- districts_race_data %>%
-  dplyr::filter(
-    missing_race_data_flag == 0,
-    !is.na(district)
-    ) %>%
-  dplyr::select(district, Population)
-
-# calculates the size of the largest district by population relative to the target population
-max_district_perc <- 100 * max(districts_population_data$Population, na.rm = TRUE) / district_target_population
-
-
-# calculates the size of the smallest district by population relative to the target population
-min_district_perc <- 100 * min(districts_population_data$Population, na.rm = TRUE) / district_target_population
+write.csv(districts_race_data, "Districts by Race Rodden/race_vtd01.csv", row.names = FALSE)
 

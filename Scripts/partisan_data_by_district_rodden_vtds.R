@@ -2,13 +2,9 @@
 # This script takes an output from the randomDistance file, adds voting data, and
 # calculates district-wide voting partisanship.
 
-
 ### load libraries ----------------------------------------------------------------------
 
 library(readxl)
-library(sf)
-library(ggplot2)
-library(mapview)
 library(tibble)
 library(tidyverse)
 
@@ -52,22 +48,72 @@ voting_vtd <- vtd_data %>%
 voting_by_vtd <- output %>%
   dplyr::full_join(voting_vtd, dplyr::join_by("GEO_ID" == "GEOID10")) %>%
   dplyr::mutate(
-    voting_data_missing_flag = is.na(votes_total)
+    District = factor(district,
+                      levels = c("1", "2", "3", "4", "5", "6", "7", "8",
+                                 "9", "10", "11", "12", "13", "14", "15",
+                                 "16", "Ohio Total")),
+    `Voting Data Missing Flag` = is.na(votes_total)
   ) %>%
-  dplyr::group_by(district,voting_data_missing_flag) %>%
+  dplyr::group_by(District,`Voting Data Missing Flag`) %>%
   dplyr::summarise(
-    CIT_EST = sum(as.numeric(CIT_EST), na.rm = TRUE),
-    registered_voters = sum(registered_voters, na.rm = TRUE),
-    votes_dem = sum(votes_dem, na.rm = TRUE),
-    votes_rep = sum(votes_rep, na.rm = TRUE),
-    votes_3rdparty = sum(votes_3rdparty, na.rm = TRUE),
-    votes_total = sum(votes_total, na.rm = TRUE),
-    votes_2party = sum(votes_2party, na.rm = TRUE),
-    dem_perc_2party = votes_dem / votes_2party,
-    rep_perc_2party = votes_rep / votes_2party,
-    winner = ifelse(dem_perc_2party > rep_perc_2party, "Democrat", "Republican")
+    Population = sum(as.numeric(CIT_EST), na.rm = TRUE),
+    `Registered Voters` = sum(registered_voters, na.rm = TRUE),
+    `Votes Democratic` = sum(votes_dem, na.rm = TRUE),
+    `Votes Republican` = sum(votes_rep, na.rm = TRUE),
+    `Votes Third Party` = sum(votes_3rdparty, na.rm = TRUE),
+    `Votes Total` = sum(votes_total, na.rm = TRUE),
+    `Votes Two Main Parties` = sum(votes_2party, na.rm = TRUE),
   ) %>%
   dplyr::ungroup() %>%
-  dplyr::arrange(as.numeric(district))
-
+  dplyr::arrange(District) %>%
+  tibble::add_row(
+    District = "Ohio Total",
+    `Voting Data Missing Flag` = FALSE,
+    Population = sum(as.numeric(output$CIT_EST), na.rm = TRUE),
+    `Registered Voters` = sum(voting_vtd$registered_voters, na.rm = TRUE),
+    `Votes Democratic` = sum(voting_vtd$votes_dem, na.rm = TRUE),
+    `Votes Republican` = sum(voting_vtd$votes_rep, na.rm = TRUE),
+    `Votes Third Party` = sum(voting_vtd$votes_3rdparty, na.rm = TRUE),
+    `Votes Total` = sum(voting_vtd$votes_total, na.rm = TRUE),
+    `Votes Two Main Parties` = sum(voting_vtd$votes_2party, na.rm = TRUE)
+  ) %>%
+  dplyr::rowwise() %>%
+  dplyr::mutate(
+    `Democrat Percent Two Main Parties` = `Votes Democratic` / `Votes Two Main Parties`,
+    `Republican Percent Two Main Parties` = `Votes Republican` / `Votes Two Main Parties`,
+    Winner = ifelse(`Democrat Percent Two Main Parties` > `Republican Percent Two Main Parties`, "Democrat", "Republican"),
+    Turnout = 100 * `Votes Total` / `Registered Voters`,
+    # add Competitiveness Score, where the absolute value of Democrat Percent Two
+    # Main Parties - Republican Percent Two Main Parties
+    # is classified based on:
+    # [0, 3) - 4 (tossup)
+    # [3, 10) - 3 (competitive)
+    # [10, 20) - 2 (leans)
+    # > 20 - 1 (solid)
+    `Vote Difference` = abs(`Democrat Percent Two Main Parties` - `Republican Percent Two Main Parties`),
+    # Partisan Vote Difference accounts for Democrat/Republican leans (positive is more Democratic, negative
+    # is more Republican)
+    `Partisan Vote Difference` = `Democrat Percent Two Main Parties` - `Republican Percent Two Main Parties`,
+    `Competitiveness Score` = dplyr::case_when(
+      `Vote Difference` >= 0.00 &
+        `Vote Difference` < 0.03 ~ 1,
+      `Vote Difference` >= 0.03 &
+        `Vote Difference` < 0.10 ~ 2,
+      `Vote Difference` >= 0.10 &
+        `Vote Difference` < 0.20 ~ 3,
+      `Vote Difference` >= 0.20 ~ 4,
+      .default = NA
+      ),
+    `Partisan Competitiveness Score` = dplyr::case_when(
+      `Voting Data Missing Flag` == FALSE & `Partisan Vote Difference` <= -0.20 ~ "Solid Republican",
+      `Voting Data Missing Flag` == FALSE & `Partisan Vote Difference` >= 0.20 ~ "Solid Democratic",
+      `Voting Data Missing Flag` == FALSE & `Partisan Vote Difference` <= -0.10 ~ "Likely Republican",
+      `Voting Data Missing Flag` == FALSE & `Partisan Vote Difference` >= 0.10 ~ "Likely Democratic",
+      `Voting Data Missing Flag` == FALSE & `Partisan Vote Difference` <= -0.03 ~ "Leans Republican",
+      `Voting Data Missing Flag` == FALSE & `Partisan Vote Difference` >= 0.03 ~ "Leans Democratic",
+      `Voting Data Missing Flag` == FALSE ~ "Tossup",
+      .default = NA
+    ))
+    
+write.csv(voting_by_vtd, "Districts by Partisanship Rodden/partisanship_vtd01.csv", row.names = FALSE)
 

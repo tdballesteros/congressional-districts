@@ -49,8 +49,9 @@ pop <- oh2010 %>%
     GEOID10 = stringr::str_sub(Geography, 10)
   ) %>%
   dplyr::full_join(vtd_data, by = "GEOID10") %>%
+  dplyr::rowwise() %>%
   dplyr::mutate(
-    rmissing = is.na(ALAND10),
+    rmissing = is.na(total_08),
     omissing = is.na(Total)
   )
 
@@ -64,11 +65,14 @@ missing_table <- pop %>%
     county_coa = dplyr::coalesce(ocounty,rcounty)
   )
 
-table(missing_table$rmissing, useNA = "always") # 124 missing, 11006 not missing
-sum(missing_table$Total, na.rm = TRUE) # population with unmatched voting records
+pop_small <- pop %>%
+  dplyr::select(GEOID10, Geography, Geographic.Area.Name, Total, oh_vote_order:precinct_code, COUNTY_NUMBER:PRECINCT_NAME, total_08, precid_08:omissing)
 
-table(missing_table$omissing, useNA = "always") # 101 missing, 11029 not missing
-sum(missing_table$total_08, na.rm = TRUE) # voting records with unmatched population
+table(pop$rmissing, useNA = "always") # 23 missing, 11107 not missing
+sum(missing_table$Total, na.rm = TRUE) # population with unmatched voting records - 11,772
+
+table(pop$omissing, useNA = "always") # 101 missing, 11029 not missing
+sum(missing_table$total_08, na.rm = TRUE) # voting records with unmatched population - 43,736
 
 pop <- pop %>%
   dplyr::select(GEOID10, Total) %>%
@@ -85,7 +89,8 @@ pop_vtd[pop_vtd %!in% adj_vtd]
 adj_vtd[adj_vtd %!in% pop_vtd]
 
 
-# create data for temporarily merging enclave VTDs with surrounding (neighbor) VTDs
+# create data to temporarily merging enclave VTDs with surrounding (neighbor) VTDs
+# for use in the splitIntoTwo function
 
 vtd_enclave_xwalk <- adj %>%
   dplyr::group_by(SOURCE_TRACTID) %>%
@@ -101,6 +106,24 @@ vtd_enclave_xwalk <- adj %>%
     SOURCE_TRACTID = "39081081AAE",
     NEIGHBOR_TRACTID = "39081081AAB"
   )  %>%
+  # add VTDs 39013013ACX, 39013013ACZ (connected enclaves)
+  tibble::add_row(
+    SOURCE_TRACTID = "39013013ACX",
+    NEIGHBOR_TRACTID = "39013013ADB"
+  ) %>%
+  tibble::add_row(
+    SOURCE_TRACTID = "39013013ACZ",
+    NEIGHBOR_TRACTID = "39013013ADB"
+  ) %>%
+  # add VTDs 39171171ABH, 39171171ABG (connected enclaves)
+  tibble::add_row(
+    SOURCE_TRACTID = "39171171ABH",
+    NEIGHBOR_TRACTID = "39171171ABF"
+  ) %>%
+  tibble::add_row(
+    SOURCE_TRACTID = "39171171ABG",
+    NEIGHBOR_TRACTID = "39171171ABF"
+  ) %>%
   dplyr::select(-n)
 
 vtd_enclave_list <- vtd_enclave_xwalk %>%
@@ -235,18 +258,16 @@ isContig <- function(list, adjdf = adj){
 }
 
 
-# split1 <- splitIntoTwo(pop, adj)
-df <- pop
-adjdf <- adj
-
+# df <- pop
+# adjdf <- adj
 
 splitIntoTwo <- function(df = pop, adjdf = adj){
-  
+
   # test if the input df is contiguous
   if(isContig(df$GEO_ID, adjdf) == 0){
-    
+
     stop(paste("Error: Input Not Contiguous"))
-    
+
   }
   
   # pull enclaves within the inputted df
@@ -274,9 +295,9 @@ splitIntoTwo <- function(df = pop, adjdf = adj){
   
   # test if the subset of data is contiguous
     if(isContig(df_mod$GEO_ID, adjdf_mod) == 0){
-    
+
     stop(paste("Error: Input Not Contiguous"))
-    
+
   }
 
   # split df VTD/population frame into two districts
@@ -401,6 +422,68 @@ splitIntoTwo <- function(df = pop, adjdf = adj){
       ba_perc = ifelse(is.nan(ba_perc), 0, ba_perc)
     )
   
+  # tmp_half_a <- whichside %>%
+  #   dplyr::filter(alif_perc > ba_perc) %>%
+  #   dplyr::pull(GEO_ID)
+  # tmp_half_a <- c(half_a$GEO_ID, tmp_half_a)
+  # 
+  # tmp_half_b <- whichside %>%
+  #   dplyr::filter(alif_perc < ba_perc) %>%
+  #   dplyr::pull(GEO_ID)
+  # tmp_half_b <- c(half_b$GEO_ID, tmp_half_b)
+  #   
+  # whichside_0 <- whichside %>%
+  #   dplyr::filter(
+  #     alif_perc == 0,
+  #     ba_perc == 0
+  #     ) %>%
+  #   # for each tract, calculate how many neighboring tracts it has
+  #   # in the adjacency matrix that are in tmp_alpha/tmp_beta lists, respectively
+  #   # and now many neighboring tracts it has total
+  #   dplyr::mutate(
+  #     alif_tmp = adjdf_mod %>%
+  #       dplyr::filter(
+  #         SOURCE_TRACTID == as.character(GEO_ID),
+  #         NEIGHBOR_TRACTID %in% tmp_half_a) %>%
+  #       unique() %>%
+  #       nrow(),
+  #     ba_tmp = adjdf_mod %>%
+  #       dplyr::filter(
+  #         SOURCE_TRACTID == as.character(GEO_ID),
+  #         NEIGHBOR_TRACTID %in% tmp_half_b) %>%
+  #       unique() %>%
+  #       nrow(),
+  #     alif_tmp_total = adjdf_mod %>%
+  #       dplyr::filter(
+  #         SOURCE_TRACTID == as.character(GEO_ID)
+  #       ) %>%
+  #       unique() %>%
+  #       nrow(),
+  #     ba_tmp_total = adjdf_mod %>%
+  #       dplyr::filter(
+  #         SOURCE_TRACTID == as.character(GEO_ID),
+  #       ) %>%
+  #       unique() %>%
+  #       nrow(),
+  #     # calculate percentage of neighboring tracts in each side
+  #     alif_tmp_perc = alif_tmp / alif_tmp_total,
+  #     alif_tmp_perc = ifelse(is.nan(alif_tmp_perc), 0, alif_tmp_perc),
+  #     ba_tmp_perc = ba_tmp / ba_tmp_total,
+  #     ba_tmp_perc = ifelse(is.nan(ba_tmp_perc), 0, ba_tmp_perc),
+  #     # modify temporary alif and ba percs to ensure they are closest to 0 in the whichside df
+  #     alif_tmp_perc <- alif_tmp_perc^2,
+  #     ba_tmp_perc <- ba_tmp_perc^2
+  #   ) %>%
+  #   dplyr::select(GEO_ID, alif_tmp_perc, ba_tmp_perc)
+  # 
+  # whichside <- whichside %>%
+  #   dplyr::left_join(whichside_0, by = "GEO_ID") %>%
+  #   dplyr::mutate(
+  #     alif_perc = dplyr::coalesce(alif_tmp_perc, alif_perc),
+  #     ba_perc = dplyr::coalesce(ba_tmp_perc, ba_perc)
+  #   ) %>%
+  #   dplyr::select(-alif_tmp_perc, -ba_tmp_perc)
+
   # while the population is <= the population target...
   while(pop_half_a <= sum_goal){
     
@@ -457,9 +540,10 @@ splitIntoTwo <- function(df = pop, adjdf = adj){
   # or Side B
   tdf <- tdf %>%
     dplyr::rowwise() %>%
-    dplyr::mutate(half = dplyr::case_when(
-      GEO_ID %in% half_a_list ~ 1,
-      .default = 2
+    dplyr::mutate(
+      half = dplyr::case_when(
+        GEO_ID %in% half_a_list ~ 1,
+        .default = 2
     ))
   
   # pull district coding for VTDs surrounding enclaves
@@ -493,7 +577,50 @@ splitIntoTwo <- function(df = pop, adjdf = adj){
     rbind(tdf_neighbor_to_add,
           tdf_enclave_to_add) %>%
     as.data.frame()
-
+  
+  half1_list_tmp <- tdf %>%
+    dplyr::filter(half == 1) %>%
+    dplyr::pull(GEO_ID)
+  
+  half2_list_tmp <- tdf %>%
+    dplyr::filter(half == 2) %>%
+    dplyr::pull(GEO_ID)
+  
+  # pull number of adjacent tracts and tracts in each half to determine non-contiguousness
+  tdf <- tdf %>%
+    dplyr::rowwise() %>%
+    dplyr::mutate(
+      total_adj = adjdf %>%
+        dplyr::filter(SOURCE_TRACTID == GEO_ID) %>%
+        nrow(),
+      half1_adj = adjdf %>%
+        dplyr::filter(
+          SOURCE_TRACTID == GEO_ID,
+          NEIGHBOR_TRACTID %in% half1_list_tmp
+          ) %>%
+        nrow(),
+      half2_adj = adjdf %>%
+        dplyr::filter(
+          SOURCE_TRACTID == GEO_ID,
+          NEIGHBOR_TRACTID %in% half2_list_tmp
+        ) %>%
+        nrow(),
+      half1_adj_within = dplyr::case_when(
+        half == 1 ~ half1_adj,
+        .default = NA
+      ),
+      half2_adj_within = dplyr::case_when(
+        half == 2 ~ half2_adj,
+        .default = NA
+      ),
+      half_adj_within = dplyr::coalesce(half1_adj_within, half2_adj_within),
+      # if there are no adjacent tracts within the same half, flip the half
+      half = dplyr::case_when(
+        half == 1 & half_adj_within == 0 ~ 2,
+        half == 2 & half_adj_within == 0 ~ 1,
+        .default = half
+        ))
+  
   # pull data for Side A
   half1_list <- tdf %>%
     dplyr::filter(half == 1) %>%
@@ -534,14 +661,14 @@ splitIntoTwo <- function(df = pop, adjdf = adj){
     return(output)
   }
   if(sideA_contig == 0 | sideB_contig == 0){
-    stop(paste("Error: Function produced a non-contiguous district."))
+    warning(paste("Error: Function produced a non-contiguous district."))
+    return(output)
   }
   
 }
 
 ### Split 1: Two Parts ----------------------------------------------------------------------
 
-# split1 <- splitIntoTwo(pop_tracts_total, adj)
 split1 <- splitIntoTwo(pop, adj)
 
 pop_half1 <- split1[[1]]
@@ -746,52 +873,6 @@ sum(pop_sixteenth16$CIT_EST, na.rm = TRUE)
 
 ### Create Final Dataset ----------------------------------------------------------------------
 
-
-pop_final <- tdf %>%
-  dplyr::mutate(
-    district = dplyr::case_when(
-      GEO_ID %in% pop_half1$GEO_ID ~ 1,
-      GEO_ID %in% pop_half2$GEO_ID ~ 2,
-      .default = NA
-    ))
-
-
-
-pop_final <- pop_vtds_total %>%
-  dplyr::mutate(
-    district = dplyr::case_when(
-      Geography %in% pop_half1$Geography ~ 1,
-      Geography %in% pop_half2$Geography ~ 2,
-      .default = NA
-    ))
-
-pop_final <- pop_vtds_total %>%
-  dplyr::mutate(
-    district = dplyr::case_when(
-      GEO_ID %in% pop_quarter1$GEO_ID ~ 1,
-      GEO_ID %in% pop_quarter2$GEO_ID ~ 2,
-      GEO_ID %in% pop_quarter3$GEO_ID ~ 3,
-      GEO_ID %in% pop_quarter4$GEO_ID ~ 4,
-      .default = NA
-    ))
-
-
-
-pop_final <- pop %>%
-  dplyr::mutate(
-    district = dplyr::case_when(
-      GEO_ID %in% pop_eigth1$GEO_ID ~ 1,
-      GEO_ID %in% pop_eigth2$GEO_ID ~ 2,
-      GEO_ID %in% pop_eigth3$GEO_ID ~ 3,
-      GEO_ID %in% pop_eigth4$GEO_ID ~ 4,
-      GEO_ID %in% pop_eigth5$GEO_ID ~ 5,
-      GEO_ID %in% pop_eigth6$GEO_ID ~ 6,
-      GEO_ID %in% pop_eigth7$GEO_ID ~ 7,
-      GEO_ID %in% pop_eigth8$GEO_ID ~ 8,
-      .default = NA
-    ))
-
-
 pop_final <- pop %>%
   dplyr::mutate(
     district = dplyr::case_when(
@@ -815,7 +896,7 @@ pop_final <- pop %>%
     )
   )
 
-# table(pop_final$district, useNA = "always")
+table(pop_final$district, useNA = "always")
 
 write.csv(pop_final, "District Outputs Rodden/output_vtd01.csv", row.names = FALSE)
 
@@ -844,13 +925,12 @@ map <- pop_final %>%
     district == 16 ~ "olivedrab3",
     .default = "white"
   )) %>%
-  st_as_sf() %>%
-  ggplot2::ggplot() +
-  ggplot2::geom_sf(ggplot2::aes(fill = color))
+  st_as_sf() #%>%
+  # ggplot2::ggplot() +
+  # ggplot2::geom_sf(ggplot2::aes(fill = color))
 
 map
+# plot(map, col=map$color, border=map$color, bg = "#ffffff")
 
 
-# mapview(map, zcol = "color")
-
-
+mapview(map, zcol = "color")
