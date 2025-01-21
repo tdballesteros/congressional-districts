@@ -898,7 +898,7 @@ pop_final <- pop %>%
 
 table(pop_final$district, useNA = "always")
 
-write.csv(pop_final, "District Outputs Rodden/output_vtd01.csv", row.names = FALSE)
+write.csv(pop_final, "District Outputs Rodden/output_vtd04.csv", row.names = FALSE)
 
 
 ### Create Map -----------------------------------------------------------------------

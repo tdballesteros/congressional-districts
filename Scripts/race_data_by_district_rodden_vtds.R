@@ -17,7 +17,7 @@ oh2010 <- read.csv("Data/population_data_2010_by_vtd.csv",
 
 ## Output Data
 # The output CSV file from the random_distance_vtds script
-output <- read.csv("District Outputs Rodden/output_vtd01.csv",
+output <- read.csv("District Outputs Rodden/output_vtd04.csv",
                    colClass = "character")
 
 ### format data ----------------------------------------------------------------------
@@ -130,5 +130,5 @@ districts_race_data <- dplyr::full_join(output, pop_vtds, dplyr::join_by("GEO_ID
       .default = NA
     ))
 
-write.csv(districts_race_data, "Districts by Race Rodden/race_vtd01.csv", row.names = FALSE)
+write.csv(districts_race_data, "Districts by Race Rodden/race_vtd04.csv", row.names = FALSE)
 

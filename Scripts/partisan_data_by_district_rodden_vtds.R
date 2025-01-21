@@ -21,7 +21,7 @@ oh2010 <- read.csv("Data/population_data_2010_by_vtd.csv",
 
 ## Output Data
 # The output CSV file from the random_distance_vtds script
-output <- read.csv("District Outputs Rodden/output_vtd01.csv",
+output <- read.csv("District Outputs Rodden/output_vtd04.csv",
                    colClass = "character")
 
 ### format data ----------------------------------------------------------------------
@@ -115,5 +115,5 @@ voting_by_vtd <- output %>%
       .default = NA
     ))
     
-write.csv(voting_by_vtd, "Districts by Partisanship Rodden/partisanship_vtd01.csv", row.names = FALSE)
+write.csv(voting_by_vtd, "Districts by Partisanship Rodden/partisanship_vtd04.csv", row.names = FALSE)
 
