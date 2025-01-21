@@ -5,6 +5,21 @@
 
 ## Data Sources
 
+### Shapefiles
+# Voting Districts 2010 Shapefile - US Census and TIGER/Line
+# US 108th Congressional Districts (Ohio) Shapefile - US Census Bureau and TIGER/Line
+# US 111th Congressional Districts (Ohio) Shapefile - US Census Bureau and TIGER/Line
+# US 112th Congressional Districts Shapefile - US Census Bureau and TIGER/Line
+# US 113th Congressional Districts Shapefile - US Census Bureau and TIGER/Line
+
+### Adjacency Matrices
+# Voting District Adjacency Data 2010 - derived from US Census Bureau and TIGER/Line shapefiles
+# Census Tract Adjacency Data 2000 - Spatial Strucures in the Social Sciences, Brown University
+# Census Tract Adjacency Data 2010 - Spatial Strucures in the Social Sciences, Brown University
+
+### Demographic Data
+
+### Voting Data
 
 ## Methodology
 # This data uses census tracts / voting districts to create 16 national congressional districts in Ohio. Districts for this project are required to be contiguous* and of equal population within a reasonable margin. Any racial/ethnic data is only included after, meaning any majority-minority district requirements are ignored for this project.

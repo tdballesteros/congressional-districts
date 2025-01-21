@@ -1,7 +1,8 @@
 
+# This script uses Ohio's voting districts to construct 16 national Congressional districts using
+# 2010 US Census population data at the voting district level.
 
-# This data uses Ohio election, population, and shape data from Rodden
-# (https://web.stanford.edu/~jrodden/OH_release/) to construct 16 Congressional districts.
+# Rodden: https://web.stanford.edu/~jrodden/OH_release/
 
 ### load libraries ----------------------------------------------------------------------
 
@@ -17,18 +18,27 @@ library(tidyverse)
 
 ### load data ----------------------------------------------------------------------
 
-# adjacency matrix
-adj <- read.csv("Data/Tract_adj_list_rodden.csv",
+# Voting District Adjacency Data 2010
+## Source: Derived from US Census Bureau and TIGER/Line shapefiles
+adj <- read.csv("Data/adjacency_list_vtds_2010.csv",
                 colClasses = "character")
 
-# vtd list with populations
-vtd_data <- read.csv("Data/oh_vote_merged_final.csv")
+
+# Ohio 2010 Demographic Data by Voting District
+## Source: US Census Bureau
 oh2010 <- read.csv("Data/population_data_2010_by_vtd.csv",
                    skip = 1)
 
-# Ohio shapefile
+
+# Ohio 2008 Voting Data by Voting District
+## Source: Rodden, SDA, and US Census Bureau
+vtd_data <- read.csv("Data/oh_vote_merged_final.csv")
+
+
+## Map VTD Shapefiles
+# Source: US Census Bureau and TIGER/Line
 area <- sf::read_sf(
-  dsn = "Data/Shapes & other/OH_final.shp") %>%
+  dsn = "Data/shapefile_ohio_vtd_2010.shp") %>%
   dplyr::rename_with(tolower)
 
 ### format data ----------------------------------------------------------------------
@@ -40,8 +50,8 @@ vtd_data <- vtd_data %>%
 adj <- adj %>%
   # recode a typo
   dplyr::mutate(
-    SOURCE_TRACTID = ifelse(SOURCE_TRACTID == "3906935AAH", "39069035AAH", SOURCE_TRACTID),
-    NEIGHBOR_TRACTID = ifelse(NEIGHBOR_TRACTID == "3906935AAH", "39069035AAH", NEIGHBOR_TRACTID)
+    SOURCE_VTDID = ifelse(SOURCE_VTDID == "3906935AAH", "39069035AAH", SOURCE_VTDID),
+    NEIGHBOR_VTDID = ifelse(NEIGHBOR_VTDID == "3906935AAH", "39069035AAH", NEIGHBOR_VTDID)
   )
 
 pop <- oh2010 %>%
@@ -83,7 +93,7 @@ pop <- pop %>%
   )
 
 pop_vtd <- unique(pop$GEO_ID)
-adj_vtd <- unique(adj$SOURCE_TRACTID)
+adj_vtd <- unique(adj$SOURCE_VTDID)
 
 pop_vtd[pop_vtd %!in% adj_vtd]
 adj_vtd[adj_vtd %!in% pop_vtd]
@@ -93,48 +103,48 @@ adj_vtd[adj_vtd %!in% pop_vtd]
 # for use in the splitIntoTwo function
 
 vtd_enclave_xwalk <- adj %>%
-  dplyr::group_by(SOURCE_TRACTID) %>%
+  dplyr::group_by(SOURCE_VTDID) %>%
   dplyr::mutate(n = n()) %>%
   dplyr::ungroup() %>%
   dplyr::filter(n == 1) %>%
   # add VTDs 39081081AAF, 39081081AAE (connected enclaves)
   tibble::add_row(
-    SOURCE_TRACTID = "39081081AAF",
-    NEIGHBOR_TRACTID = "39081081AAB"
+    SOURCE_VTDID = "39081081AAF",
+    NEIGHBOR_VTDID = "39081081AAB"
   ) %>%
   tibble::add_row(
-    SOURCE_TRACTID = "39081081AAE",
-    NEIGHBOR_TRACTID = "39081081AAB"
+    SOURCE_VTDID = "39081081AAE",
+    NEIGHBOR_VTDID = "39081081AAB"
   )  %>%
   # add VTDs 39013013ACX, 39013013ACZ (connected enclaves)
   tibble::add_row(
-    SOURCE_TRACTID = "39013013ACX",
-    NEIGHBOR_TRACTID = "39013013ADB"
+    SOURCE_VTDID = "39013013ACX",
+    NEIGHBOR_VTDID = "39013013ADB"
   ) %>%
   tibble::add_row(
-    SOURCE_TRACTID = "39013013ACZ",
-    NEIGHBOR_TRACTID = "39013013ADB"
+    SOURCE_VTDID = "39013013ACZ",
+    NEIGHBOR_VTDID = "39013013ADB"
   ) %>%
   # add VTDs 39171171ABH, 39171171ABG (connected enclaves)
   tibble::add_row(
-    SOURCE_TRACTID = "39171171ABH",
-    NEIGHBOR_TRACTID = "39171171ABF"
+    SOURCE_VTDID = "39171171ABH",
+    NEIGHBOR_VTDID = "39171171ABF"
   ) %>%
   tibble::add_row(
-    SOURCE_TRACTID = "39171171ABG",
-    NEIGHBOR_TRACTID = "39171171ABF"
+    SOURCE_VTDID = "39171171ABG",
+    NEIGHBOR_VTDID = "39171171ABF"
   ) %>%
   dplyr::select(-n)
 
 vtd_enclave_list <- vtd_enclave_xwalk %>%
-  dplyr::pull(SOURCE_TRACTID)
+  dplyr::pull(SOURCE_VTDID)
 
 vtd_neighbor_list <- adj %>%
   dplyr::filter(
-    NEIGHBOR_TRACTID %in% vtd_enclave_list,
-    SOURCE_TRACTID %!in% vtd_enclave_list
+    NEIGHBOR_VTDID %in% vtd_enclave_list,
+    SOURCE_VTDID %!in% vtd_enclave_list
     ) %>%
-  dplyr::pull(SOURCE_TRACTID)
+  dplyr::pull(SOURCE_VTDID)
 
 vtd_enclave_data <- pop %>%
   dplyr::filter(GEO_ID %in% vtd_enclave_list)
@@ -182,10 +192,10 @@ tractdist <- function(tracts, adjdf = adj, popdf = pop){
     # pull all tracts adjacent to a given tract
     next_circle <- adjdf %>%
       dplyr::filter(
-        SOURCE_TRACTID %in% list_done,
-        NEIGHBOR_TRACTID %!in% list_done
+        SOURCE_VTDID %in% list_done,
+        NEIGHBOR_VTDID %!in% list_done
       ) %>%
-      dplyr::pull(NEIGHBOR_TRACTID) %>%
+      dplyr::pull(NEIGHBOR_VTDID) %>%
       unique()
     
     output <- output %>%
@@ -234,10 +244,10 @@ isContig <- function(list, adjdf = adj){
     growth_list <- adjdf %>%
       dplyr::filter(
         # adjacency for all tracts identified...
-        SOURCE_TRACTID %in% list_identified,
+        SOURCE_VTDID %in% list_identified,
         # ...but the neighbor is not identified
-        !NEIGHBOR_TRACTID %in% list_identified) %>%
-      dplyr::pull(NEIGHBOR_TRACTID) %>%
+        !NEIGHBOR_VTDID %in% list_identified) %>%
+      dplyr::pull(NEIGHBOR_VTDID) %>%
       unique()
     
     # add adjacent tracts to the list of identified tracts
@@ -280,8 +290,8 @@ splitIntoTwo <- function(df = pop, adjdf = adj){
   # in order to keep them assigned districts together
   df_mod <- df %>%
     dplyr::left_join(vtd_enclave_xwalk,
-                     dplyr::join_by("GEO_ID" == "SOURCE_TRACTID")) %>%
-    dplyr::mutate(GEO_ID = dplyr::coalesce(NEIGHBOR_TRACTID, GEO_ID)) %>%
+                     dplyr::join_by("GEO_ID" == "SOURCE_VTDID")) %>%
+    dplyr::mutate(GEO_ID = dplyr::coalesce(NEIGHBOR_VTDID, GEO_ID)) %>%
     dplyr::group_by(GEO_ID) %>%
     dplyr::summarise(CIT_EST = sum(CIT_EST, na.rm = TRUE)) %>%
     dplyr::ungroup()
@@ -289,8 +299,8 @@ splitIntoTwo <- function(df = pop, adjdf = adj){
   # create a modified adjacency matrix
   adjdf_mod <- adjdf %>%
     dplyr::filter(
-      SOURCE_TRACTID %!in% vtd_enclave_list,
-      NEIGHBOR_TRACTID %!in% vtd_enclave_list
+      SOURCE_VTDID %!in% vtd_enclave_list,
+      NEIGHBOR_VTDID %!in% vtd_enclave_list
     )
   
   # test if the subset of data is contiguous
@@ -393,25 +403,25 @@ splitIntoTwo <- function(df = pop, adjdf = adj){
     dplyr::mutate(
       alif = adjdf_mod %>%
         dplyr::filter(
-          SOURCE_TRACTID == as.character(GEO_ID),
-          NEIGHBOR_TRACTID %in% alpha) %>%
+          SOURCE_VTDID == as.character(GEO_ID),
+          NEIGHBOR_VTDID %in% alpha) %>%
         unique() %>%
         nrow(),
       ba = adjdf_mod %>%
         dplyr::filter(
-          SOURCE_TRACTID == as.character(GEO_ID),
-          NEIGHBOR_TRACTID %in% beta) %>%
+          SOURCE_VTDID == as.character(GEO_ID),
+          NEIGHBOR_VTDID %in% beta) %>%
         unique() %>%
         nrow(),
       alif_total = adjdf_mod %>%
         dplyr::filter(
-          SOURCE_TRACTID == as.character(GEO_ID)
+          SOURCE_VTDID == as.character(GEO_ID)
           ) %>%
         unique() %>%
         nrow(),
       ba_total = adjdf_mod %>%
         dplyr::filter(
-          SOURCE_TRACTID == as.character(GEO_ID),
+          SOURCE_VTDID == as.character(GEO_ID),
           ) %>%
         unique() %>%
         nrow(),
@@ -443,25 +453,25 @@ splitIntoTwo <- function(df = pop, adjdf = adj){
   #   dplyr::mutate(
   #     alif_tmp = adjdf_mod %>%
   #       dplyr::filter(
-  #         SOURCE_TRACTID == as.character(GEO_ID),
-  #         NEIGHBOR_TRACTID %in% tmp_half_a) %>%
+  #         SOURCE_VTDID == as.character(GEO_ID),
+  #         NEIGHBOR_VTDID %in% tmp_half_a) %>%
   #       unique() %>%
   #       nrow(),
   #     ba_tmp = adjdf_mod %>%
   #       dplyr::filter(
-  #         SOURCE_TRACTID == as.character(GEO_ID),
-  #         NEIGHBOR_TRACTID %in% tmp_half_b) %>%
+  #         SOURCE_VTDID == as.character(GEO_ID),
+  #         NEIGHBOR_VTDID %in% tmp_half_b) %>%
   #       unique() %>%
   #       nrow(),
   #     alif_tmp_total = adjdf_mod %>%
   #       dplyr::filter(
-  #         SOURCE_TRACTID == as.character(GEO_ID)
+  #         SOURCE_VTDID == as.character(GEO_ID)
   #       ) %>%
   #       unique() %>%
   #       nrow(),
   #     ba_tmp_total = adjdf_mod %>%
   #       dplyr::filter(
-  #         SOURCE_TRACTID == as.character(GEO_ID),
+  #         SOURCE_VTDID == as.character(GEO_ID),
   #       ) %>%
   #       unique() %>%
   #       nrow(),
@@ -564,11 +574,11 @@ splitIntoTwo <- function(df = pop, adjdf = adj){
   tdf_enclave_to_add <- df %>%
     dplyr::filter(GEO_ID %in% vtd_enclaves_df) %>%
     dplyr::left_join(vtd_enclave_xwalk,
-                     dplyr::join_by("GEO_ID" == "SOURCE_TRACTID")) %>%
+                     dplyr::join_by("GEO_ID" == "SOURCE_VTDID")) %>%
     dplyr::left_join(tdf_neighbor_to_add %>%
                        dplyr::select(-CIT_EST),
-                     dplyr::join_by("NEIGHBOR_TRACTID" == "GEO_ID")) %>%
-    dplyr::select(-NEIGHBOR_TRACTID)
+                     dplyr::join_by("NEIGHBOR_VTDID" == "GEO_ID")) %>%
+    dplyr::select(-NEIGHBOR_VTDID)
   
   tdf <- tdf %>%
     # remove combined VTD data from the dataset
@@ -591,18 +601,18 @@ splitIntoTwo <- function(df = pop, adjdf = adj){
     dplyr::rowwise() %>%
     dplyr::mutate(
       total_adj = adjdf %>%
-        dplyr::filter(SOURCE_TRACTID == GEO_ID) %>%
+        dplyr::filter(SOURCE_VTDID == GEO_ID) %>%
         nrow(),
       half1_adj = adjdf %>%
         dplyr::filter(
-          SOURCE_TRACTID == GEO_ID,
-          NEIGHBOR_TRACTID %in% half1_list_tmp
+          SOURCE_VTDID == GEO_ID,
+          NEIGHBOR_VTDID %in% half1_list_tmp
           ) %>%
         nrow(),
       half2_adj = adjdf %>%
         dplyr::filter(
-          SOURCE_TRACTID == GEO_ID,
-          NEIGHBOR_TRACTID %in% half2_list_tmp
+          SOURCE_VTDID == GEO_ID,
+          NEIGHBOR_VTDID %in% half2_list_tmp
         ) %>%
         nrow(),
       half1_adj_within = dplyr::case_when(
@@ -642,13 +652,13 @@ splitIntoTwo <- function(df = pop, adjdf = adj){
   
   # create new adjacency matrices for Side A...
   adj_half1 <- adjdf %>%
-    dplyr::filter(SOURCE_TRACTID %in% half1_list,
-                  NEIGHBOR_TRACTID %in% half1_list
+    dplyr::filter(SOURCE_VTDID %in% half1_list,
+                  NEIGHBOR_VTDID %in% half1_list
     )
   # ...and Side B
   adj_half2 <- adjdf %>%
-    dplyr::filter(SOURCE_TRACTID %in% half2_list,
-                  NEIGHBOR_TRACTID %in% half2_list
+    dplyr::filter(SOURCE_VTDID %in% half2_list,
+                  NEIGHBOR_VTDID %in% half2_list
     )
   
   # test if Side A and Side B are both contiguous
@@ -903,7 +913,50 @@ write.csv(pop_final, "District Outputs Rodden/output_vtd04.csv", row.names = FAL
 
 ### Create Map -----------------------------------------------------------------------
 
+color_palette <- c("dodgerblue3","firebrick2","chartreuse2","darkorchid3","darkslategray4",
+                   "orange2","lightsalmon","hotpink1","turquoise","darkseagreen2","lightblue3",
+                   "mediumorchid1","plum","ivory2","goldenrod","olivedrab3")
+
+color_palette <- c("#101034","#104533","#014589","#169308","#293940",
+                   "#101034","#104533","#014589","#169308","#293940",
+                   "#101034","#104533","#014589","#169308","#293940",
+                   "#fff449")
+
 map <- pop_final %>%
+  # merge tract prefix to GEO_ID prior to merging
+  dplyr::left_join(area,
+                   dplyr::join_by("GEO_ID" == "geoid10"))
+
+for(a in c(1:16)){
+  
+  tmp <- map %>%
+    dplyr::filter(district == a) %>%
+    sf::st_as_sf() %>%
+    sf::st_union() %>%
+    sf::st_as_sf() %>%
+    dplyr::mutate(district = a, .before = 1) %>%
+    dplyr::rename(geometry = 2)
+  
+  assign(paste0("district_shape_",a),tmp)
+  
+}
+
+district_map_shapefile <- mget(ls(pattern="district_shape_")) %>%
+  bind_rows() %>%
+  dplyr::mutate(District = factor(district, c(1:16))) %>%
+  dplyr::select(-district)
+
+map <- ggplot2::ggplot(data = district_map_shapefile,
+                       ggplot2::aes(fill = District)) +
+  ggplot2::geom_sf() +
+  scale_fill_manual(values = color_palette) +
+  theme_void()
+
+map
+
+
+
+map_mapview <- pop_final %>%
   dplyr::left_join(area,
                    dplyr::join_by("GEO_ID" == "geoid10")) %>%
   dplyr::mutate(color = dplyr::case_when(
@@ -925,12 +978,6 @@ map <- pop_final %>%
     district == 16 ~ "olivedrab3",
     .default = "white"
   )) %>%
-  st_as_sf() #%>%
-  # ggplot2::ggplot() +
-  # ggplot2::geom_sf(ggplot2::aes(fill = color))
+  st_as_sf()
 
-map
-# plot(map, col=map$color, border=map$color, bg = "#ffffff")
-
-
-mapview(map, zcol = "color")
+mapview(map_mapview, zcol = "color")

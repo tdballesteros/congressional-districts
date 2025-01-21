@@ -28,7 +28,7 @@ area <- sf::read_sf(
 
 ## Output Data
 # The output CSV file from the random_distance_vtds script
-output <- read.csv("District Outputs Rodden/output_vtd04.csv",
+output <- read.csv("District Outputs Rodden/output_vtd01.csv",
                    colClass = "character")
 
 ### format data ----------------------------------------------------------------------
@@ -61,7 +61,7 @@ for(a in c(1:16)){
 
 district_map_shapefile <- mget(ls(pattern="district_shape_")) %>%
   bind_rows()
-  
+
 compactness_by_district <- district_map_shapefile %>%
   # calculate statistics / compute compactness measurements
   dplyr::mutate(
@@ -89,4 +89,3 @@ compactness_by_district <- district_map_shapefile %>%
 # mapview(compactness_by_district)
 
 write.csv(compactness_by_district, "Districts by Compactness Rodden/compactness_vtd04.csv", row.names = FALSE)
-
