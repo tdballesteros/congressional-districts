@@ -917,13 +917,7 @@ color_palette <- c("dodgerblue3","firebrick2","chartreuse2","darkorchid3","darks
                    "orange2","lightsalmon","hotpink1","turquoise","darkseagreen2","lightblue3",
                    "mediumorchid1","plum","ivory2","goldenrod","olivedrab3")
 
-color_palette <- c("#101034","#104533","#014589","#169308","#293940",
-                   "#101034","#104533","#014589","#169308","#293940",
-                   "#101034","#104533","#014589","#169308","#293940",
-                   "#fff449")
-
 map <- pop_final %>%
-  # merge tract prefix to GEO_ID prior to merging
   dplyr::left_join(area,
                    dplyr::join_by("GEO_ID" == "geoid10"))
 
@@ -949,35 +943,16 @@ district_map_shapefile <- mget(ls(pattern="district_shape_")) %>%
 map <- ggplot2::ggplot(data = district_map_shapefile,
                        ggplot2::aes(fill = District)) +
   ggplot2::geom_sf() +
-  scale_fill_manual(values = color_palette) +
-  theme_void()
+  ggplot2::scale_fill_manual(values = color_palette) +
+  ggplot2::theme_void()
 
 map
 
 
-
+# map using mapview function
 map_mapview <- pop_final %>%
   dplyr::left_join(area,
                    dplyr::join_by("GEO_ID" == "geoid10")) %>%
-  dplyr::mutate(color = dplyr::case_when(
-    district == 1 ~ "dodgerblue3",
-    district == 2 ~ "firebrick2",
-    district == 3 ~ "chartreuse2",
-    district == 4 ~ "darkorchid3",
-    district == 5 ~ "darkslategray4",
-    district == 6 ~ "orange2",
-    district == 7 ~ "lightsalmon",
-    district == 8 ~ "hotpink1",
-    district == 9 ~ "turquoise",
-    district == 10 ~ "darkseagreen2",
-    district == 11 ~ "lightblue3",
-    district == 12 ~ "mediumorchid1",
-    district == 13 ~ "plum",
-    district == 14 ~ "ivory2",
-    district == 15 ~ "goldenrod",
-    district == 16 ~ "olivedrab3",
-    .default = "white"
-  )) %>%
   st_as_sf()
 
-mapview(map_mapview, zcol = "color")
+mapview(map_mapview, zcol = "district", col.regions = mapviewPalette("mapviewSpectralColors"))

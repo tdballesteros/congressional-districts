@@ -31,9 +31,9 @@ tract_data <- read.csv("Data/population_data_2010_by_tract.csv",
 ## Map Shapefiles
 # Source: US Census Bureau and TIGER/Line
 shape_tract <- sf::read_sf(
-  dsn = "Data/gz_2010_39_140_00_500k/gz_2010_39_140_00_500k.shp") %>%
-  dplyr::rename_with(tolower, -starts_with("GEO_ID"))
-names(shape_tract)[1] <- "Geography"
+  dsn = "Data/tl_2010_39_tract10/tl_2010_39_tract10.shp") %>%
+  dplyr::rename_with(tolower) %>%
+  dplyr::rename(Geography = geoid10)
 
 ### format data ----------------------------------------------------------------------
 pop_tracts_total <- tract_data %>%
@@ -78,58 +78,58 @@ pop_tracts_total <- tract_data %>%
   # select columns
   dplyr::select(Geography, Population)
 
-
-pop_vtds_total <- voting_district_data %>%
-  # Ohio FIPS code is 39
-  dplyr::filter(stringr::str_sub(Geography, 10, 11) == "39") %>%
-  dplyr::select(Geography, Total) %>%
-  dplyr::rename(Population = Total) %>%
-  # convert all data to numeric values
-  dplyr::mutate(
-    Population = as.numeric(Population),
-    Geography = stringr::str_sub(Geography, 10)
-  ) %>%
-  # select columns
-  dplyr::select(Geography, Population) %>%
-  # filter out district not in adjacency matrix/map file
-  dplyr::filter(Geography != "39069035AAH")
-
-# modify by merging enclave VTDs with surrounding VTD and combining populations,
-# as these VTDs always have to stay paired with each other
-
-# source is the enclave, neighbor is the surrounding vtd
-vtd_enclave_data <- adj_vtd %>%
-  dplyr::group_by(SOURCE_TRACTID) %>%
-  dplyr::mutate(n = n()) %>%
-  dplyr::ungroup() %>%
-  dplyr::filter(n == 1) %>%
-  dplyr::select(-n) %>%
-  dplyr::rename(
-    vtd_enclave = SOURCE_TRACTID,
-    vtd_surrounding = NEIGHBOR_TRACTID
-  ) %>%
-  # add VTDs 39081081AAF, 39081081AAE (connected enclaves)
-  tibble::add_row(
-    vtd_enclave = "39081081AAF",
-    vtd_surrounding = "39081081AAB"
-  ) %>%
-  tibble::add_row(
-    vtd_enclave = "39081081AAE",
-    vtd_surrounding = "39081081AAB"
-  )
-
-vtd_enclave_list <- vtd_enclave_data %>%
-  dplyr::pull(vtd_enclave)
-
-pop_vtds_total_mod <- dplyr::full_join(pop_vtds_total,
-                                       vtd_enclave_data,
-                                       dplyr::join_by("Geography" == "vtd_enclave")) %>%
-  dplyr::mutate(Geography = dplyr::coalesce(vtd_surrounding, Geography)) %>%
-  dplyr::relocate(Geography, .before = Population) %>%
-  dplyr::select(-vtd_surrounding) %>%
-  dplyr::group_by(Geography) %>%
-  dplyr::summarise(Population = sum(Population, na.rm = TRUE)) %>%
-  dplyr::ungroup()
+# 
+# pop_vtds_total <- voting_district_data %>%
+#   # Ohio FIPS code is 39
+#   dplyr::filter(stringr::str_sub(Geography, 10, 11) == "39") %>%
+#   dplyr::select(Geography, Total) %>%
+#   dplyr::rename(Population = Total) %>%
+#   # convert all data to numeric values
+#   dplyr::mutate(
+#     Population = as.numeric(Population),
+#     Geography = stringr::str_sub(Geography, 10)
+#   ) %>%
+#   # select columns
+#   dplyr::select(Geography, Population) %>%
+#   # filter out district not in adjacency matrix/map file
+#   dplyr::filter(Geography != "39069035AAH")
+# 
+# # modify by merging enclave VTDs with surrounding VTD and combining populations,
+# # as these VTDs always have to stay paired with each other
+# 
+# # source is the enclave, neighbor is the surrounding vtd
+# vtd_enclave_data <- adj_vtd %>%
+#   dplyr::group_by(SOURCE_TRACTID) %>%
+#   dplyr::mutate(n = n()) %>%
+#   dplyr::ungroup() %>%
+#   dplyr::filter(n == 1) %>%
+#   dplyr::select(-n) %>%
+#   dplyr::rename(
+#     vtd_enclave = SOURCE_TRACTID,
+#     vtd_surrounding = NEIGHBOR_TRACTID
+#   ) %>%
+#   # add VTDs 39081081AAF, 39081081AAE (connected enclaves)
+#   tibble::add_row(
+#     vtd_enclave = "39081081AAF",
+#     vtd_surrounding = "39081081AAB"
+#   ) %>%
+#   tibble::add_row(
+#     vtd_enclave = "39081081AAE",
+#     vtd_surrounding = "39081081AAB"
+#   )
+# 
+# vtd_enclave_list <- vtd_enclave_data %>%
+#   dplyr::pull(vtd_enclave)
+# 
+# pop_vtds_total_mod <- dplyr::full_join(pop_vtds_total,
+#                                        vtd_enclave_data,
+#                                        dplyr::join_by("Geography" == "vtd_enclave")) %>%
+#   dplyr::mutate(Geography = dplyr::coalesce(vtd_surrounding, Geography)) %>%
+#   dplyr::relocate(Geography, .before = Population) %>%
+#   dplyr::select(-vtd_surrounding) %>%
+#   dplyr::group_by(Geography) %>%
+#   dplyr::summarise(Population = sum(Population, na.rm = TRUE)) %>%
+#   dplyr::ungroup()
 
 
 adj <- adj %>%
@@ -140,11 +140,11 @@ adj <- adj %>%
   )
 
 # create modified vtd adjacency matrix without enclaves
-adj_vtd_mod <- adj_vtd %>%
-  dplyr::filter(
-    SOURCE_TRACTID %!in% c(vtd_enclave_list, "3906935AAH"),
-    NEIGHBOR_TRACTID %!in% c(vtd_enclave_list, "3906935AAH")
-    )
+# adj_vtd_mod <- adj_vtd %>%
+#   dplyr::filter(
+#     SOURCE_TRACTID %!in% c(vtd_enclave_list, "3906935AAH"),
+#     NEIGHBOR_TRACTID %!in% c(vtd_enclave_list, "3906935AAH")
+#     )
 
 ### functions ----------------------------------------------------------------------
 
@@ -262,8 +262,8 @@ isContig <- function(list, adjdf = adj){
 }
 
 # split1 <- splitIntoTwo(pop_vtds_total_mod, adj_vtd_mod)
-df <- pop_vtds_total_mod
-adjdf <- adj_vtd_mod
+# df <- pop_vtds_total_mod
+# adjdf <- adj_vtd_mod
 
 
 splitIntoTwo <- function(df = pop_tracts_total, adjdf = adj){
@@ -271,7 +271,7 @@ splitIntoTwo <- function(df = pop_tracts_total, adjdf = adj){
   # test if the input df is contiguous
   if(isContig(df$Geography, adjdf) == 0){
     
-    return(paste("Error: Input Not Contiguous"))
+    stop(paste("Error: Input Not Contiguous"))
     
   }
   
@@ -441,6 +441,49 @@ splitIntoTwo <- function(df = pop_tracts_total, adjdf = adj){
       .default = 2
     ))
   
+  half1_list_tmp <- tdf %>%
+    dplyr::filter(half == 1) %>%
+    dplyr::pull(Geography)
+  
+  half2_list_tmp <- tdf %>%
+    dplyr::filter(half == 2) %>%
+    dplyr::pull(Geography)
+  
+  # pull number of adjacent tracts and tracts in each half to determine non-contiguousness
+  tdf <- tdf %>%
+    dplyr::rowwise() %>%
+    dplyr::mutate(
+      total_adj = adjdf %>%
+        dplyr::filter(SOURCE_TRACTID == Geography) %>%
+        nrow(),
+      half1_adj = adjdf %>%
+        dplyr::filter(
+          SOURCE_TRACTID == Geography,
+          NEIGHBOR_TRACTID %in% half1_list_tmp
+        ) %>%
+        nrow(),
+      half2_adj = adjdf %>%
+        dplyr::filter(
+          SOURCE_TRACTID == Geography,
+          NEIGHBOR_TRACTID %in% half2_list_tmp
+        ) %>%
+        nrow(),
+      half1_adj_within = dplyr::case_when(
+        half == 1 ~ half1_adj,
+        .default = NA
+      ),
+      half2_adj_within = dplyr::case_when(
+        half == 2 ~ half2_adj,
+        .default = NA
+      ),
+      half_adj_within = dplyr::coalesce(half1_adj_within, half2_adj_within),
+      # if there are no adjacent tracts within the same half, flip the half
+      half = dplyr::case_when(
+        half == 1 & half_adj_within == 0 ~ 2,
+        half == 2 & half_adj_within == 0 ~ 1,
+        .default = half
+      ))
+  
   # pull data for Side A
   half1_list <- tdf %>%
     dplyr::filter(half == 1) %>%
@@ -454,10 +497,10 @@ splitIntoTwo <- function(df = pop_tracts_total, adjdf = adj){
     unique()
   
   # create new population sets for Side A...
-  pop_half1 <- popdf %>%
+  pop_half1 <- df %>%
     dplyr::filter(Geography %in% half1_list)
   # ...and Side B
-  pop_half2 <- popdf %>%
+  pop_half2 <- df %>%
     dplyr::filter(Geography %in% half2_list)
   
   # create new adjacency matrices for Side A...
@@ -481,15 +524,15 @@ splitIntoTwo <- function(df = pop_tracts_total, adjdf = adj){
     return(output)
   }
   if(sideA_contig == 0 | sideB_contig == 0){
-    return(paste("Error: Function produced a non-contiguous district."))
+    warning(paste("Error: Function produced a non-contiguous district."))
+    return(output)
   }
   
 }
 
 ### Split 1: Two Parts ----------------------------------------------------------------------
 
-# split1 <- splitIntoTwo(pop_tracts_total, adj)
-split1 <- splitIntoTwo(pop_vtds_total_mod, adj_vtd_mod)
+split1 <- splitIntoTwo(pop_tracts_total, adj)
 
 pop_half1 <- split1[[1]]
 pop_half2 <- split1[[2]]
@@ -539,6 +582,7 @@ sum(pop_quarter4$Population, na.rm = TRUE)
 # Split Quarter1 into Eigth1 and Eigth2
 
 split3a <- splitIntoTwo(pop_quarter1, adj_quarter1)
+
 pop_eigth1 <- split3a[[1]]
 pop_eigth2 <- split3a[[2]]
 
@@ -693,15 +737,7 @@ sum(pop_sixteenth16$Population, na.rm = TRUE)
 
 ### Create Final Dataset ----------------------------------------------------------------------
 
-pop_final <- pop_vtds_total %>%
-  dplyr::mutate(
-    district = dplyr::case_when(
-      Geography %in% pop_half1$Geography ~ 1,
-      Geography %in% pop_half2$Geography ~ 2,
-      .default = NA
-    ))
-
-pop_final <- pop %>%
+pop_final <- pop_tracts_total %>%
   dplyr::mutate(
     district = dplyr::case_when(
       Geography %in% pop_sixteenth1$Geography ~ 1,
@@ -726,43 +762,55 @@ pop_final <- pop %>%
 
 # table(pop_final$district, useNA = "always")
 
-write.csv(pop_final, "District Outputs Updated/output01.csv", row.names = FALSE)
+write.csv(pop_final, "District Outputs Tracts 2010/output10.csv", row.names = FALSE)
 
 
 ### Create Map -----------------------------------------------------------------------
 
+color_palette <- c("dodgerblue3","firebrick2","chartreuse2","darkorchid3","darkslategray4",
+                   "orange2","lightsalmon","hotpink1","turquoise","darkseagreen2","lightblue3",
+                   "mediumorchid1","plum","ivory2","goldenrod","olivedrab3")
+
 map <- pop_final %>%
-  # merge tract prefix to Geography prior to merging
-  # dplyr::mutate(Geography = paste0("1400000US",Geography)) %>%
-  dplyr::left_join(shape_vtd,
-                   dplyr::join_by("Geography" == "geoid10")) %>%
-                   # by = "Geography") %>%
+  dplyr::left_join(shape_tract,
+                   by = "Geography")
+
+for(a in c(1:16)){
   
-  dplyr::mutate(color = dplyr::case_when(
-    district == 1 ~ "dodgerblue3",
-    district == 2 ~ "firebrick2",
-    district == 3 ~ "chartreuse2",
-    district == 4 ~ "darkorchid3",
-    district == 5 ~ "darkslategray4",
-    district == 6 ~ "orange2",
-    district == 7 ~ "lightsalmon",
-    district == 8 ~ "hotpink1",
-    district == 9 ~ "turquoise",
-    district == 10 ~ "darkseagreen2",
-    district == 11 ~ "lightblue3",
-    district == 12 ~ "mediumorchid1",
-    district == 13 ~ "plum",
-    district == 14 ~ "ivory2",
-    district == 15 ~ "goldenrod",
-    district == 16 ~ "olivedrab3",
-    .default = "white"
-  )) %>%
-  st_as_sf() #%>%
-  # ggplot2::ggplot() +
-  # ggplot2::geom_sf(ggplot2::aes(fill = color))
+  tmp <- map %>%
+    dplyr::filter(district == a) %>%
+    sf::st_as_sf() %>%
+    sf::st_union() %>%
+    sf::st_as_sf() %>%
+    dplyr::mutate(district = a, .before = 1) %>%
+    dplyr::rename(geometry = 2)
+  
+  assign(paste0("district_shape_",a),tmp)
+  
+}
+
+district_map_shapefile <- mget(ls(pattern="district_shape_")) %>%
+  bind_rows() %>%
+  dplyr::mutate(District = factor(district, c(1:16))) %>%
+  dplyr::select(-district)
+
+map <- ggplot2::ggplot(data = district_map_shapefile,
+                       ggplot2::aes(fill = District)) +
+  ggplot2::geom_sf() +
+  ggplot2::scale_fill_manual(values = color_palette) +
+  ggplot2::theme_void()
 
 map
 
-mapview(map, zcol = "color")
+
+# map using mapview function
+map_mapview <- pop_final %>%
+  # merge tract prefix to GEO_ID prior to merging
+  dplyr::mutate(Geography = paste0("1400000US",Geography)) %>%
+  dplyr::left_join(shape_tract,
+                   by = "Geography") %>%
+  st_as_sf()
+
+mapview(map_mapview, zcol = "district", col.regions = mapviewPalette("mapviewSpectralColors"))
 
 
