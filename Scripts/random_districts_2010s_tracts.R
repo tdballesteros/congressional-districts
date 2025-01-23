@@ -582,7 +582,6 @@ sum(pop_quarter4$Population, na.rm = TRUE)
 # Split Quarter1 into Eigth1 and Eigth2
 
 split3a <- splitIntoTwo(pop_quarter1, adj_quarter1)
-
 pop_eigth1 <- split3a[[1]]
 pop_eigth2 <- split3a[[2]]
 
@@ -762,7 +761,7 @@ pop_final <- pop_tracts_total %>%
 
 # table(pop_final$district, useNA = "always")
 
-write.csv(pop_final, "District Outputs Tracts 2010/output10.csv", row.names = FALSE)
+write.csv(pop_final, "District Outputs Tracts 2010/output20.csv", row.names = FALSE)
 
 
 ### Create Map -----------------------------------------------------------------------
