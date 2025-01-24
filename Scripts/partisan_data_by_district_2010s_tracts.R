@@ -25,7 +25,7 @@ voting_data <- read.csv("Data/ohio_2020_election_data_by_block.csv",
 
 ## Output Data
 # The output CSV file from the raceData script
-output <- read.csv("District Outputs Tracts 2010/output01.csv",
+output <- read.csv("District Outputs Tracts 2010/output20.csv",
                    colClass = "character") %>%
   dplyr::select(Geography,district)
 
@@ -679,5 +679,9 @@ voting_by_district <- full_voting_data %>%
   dplyr::ungroup() %>%
   # no missing data remains
   dplyr::select(-c(`Population (missing)`, `Population (total)`, `Population (missing) %`)) %>%
-  dplyr::rename(Population = `Population (identified)`)
+  dplyr::rename(Population = `Population (identified)`) %>%
+  dplyr::relocate(Population, .after = District)
+
+write.csv(voting_by_district, "Districts by Partisanship Tracts 2010/compactness_tracts20.csv", row.names = FALSE)
+
 
