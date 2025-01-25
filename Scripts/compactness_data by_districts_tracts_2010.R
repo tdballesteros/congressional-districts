@@ -35,7 +35,7 @@ shape_tract <- sf::read_sf(
 
 ## Output Data
 # The output CSV file from the random districts tracts 2010 script
-output <- read.csv("District Outputs Tracts 2010/output20.csv",
+output <- read.csv("District Outputs Tracts 2010/output30.csv",
                    colClass = "character") %>%
   dplyr::select(Geography,district)
 
@@ -93,4 +93,4 @@ compactness_by_district <- district_map_shapefile %>%
 
 # mapview(compactness_by_district)
 
-write.csv(compactness_by_district, "Districts by Compactness Tracts 2010/compactness_tracts20.csv", row.names = FALSE)
+write.csv(compactness_by_district, "Districts by Compactness Tracts 2010/compactness_tracts30.csv", row.names = FALSE)
