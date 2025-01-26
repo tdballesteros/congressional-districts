@@ -25,10 +25,9 @@ voting_data <- read.csv("Data/ohio_2020_election_data_by_block.csv",
 
 ## Output Data
 # The output CSV file from the raceData script
-output <- read.csv("District Outputs Tracts 2010/output20.csv",
+output <- read.csv("Tracts 2010 (alg1)/Export Data/District Outputs Tracts 2010/output30.csv",
                    colClass = "character") %>%
   dplyr::select(Geography,district)
-
 
 # 2010 map
 shape_tract_2010 <- sf::read_sf(
@@ -42,8 +41,6 @@ shape_tract_2020 <- sf::read_sf(
   dsn = "Data/tl_2020_39_tract/tl_2020_39_tract.shp") %>%
   dplyr::rename_with(tolower)
 names(shape_tract_2020)[4] <- "Geography"
-
-
 
 ### format data ----------------------------------------------------------------------
 pop_tracts_total <- tract_data %>%
@@ -659,7 +656,7 @@ voting_by_district <- full_voting_data %>%
     `% Margin (2P)` = `% Votes Democratic (2P)` - `% Votes Republican (2P)`,
     Winner = dplyr::case_when(
       `% Margin (2P)` > 0 & missing_voting == FALSE ~ "Democrat",
-      `% Margin (2P)` < 0 & missing_voting == FALSE ~ "Republian",
+      `% Margin (2P)` < 0 & missing_voting == FALSE ~ "Republican",
       .default = "No Winner"
     ),
     missing_voting = dplyr::case_when(
@@ -682,6 +679,6 @@ voting_by_district <- full_voting_data %>%
   dplyr::rename(Population = `Population (identified)`) %>%
   dplyr::relocate(Population, .after = District)
 
-write.csv(voting_by_district, "Districts by Partisanship Tracts 2010/compactness_tracts20.csv", row.names = FALSE)
+write.csv(voting_by_district, "Districts by Partisanship Tracts 2010/compactness_tracts30.csv", row.names = FALSE)
 
 

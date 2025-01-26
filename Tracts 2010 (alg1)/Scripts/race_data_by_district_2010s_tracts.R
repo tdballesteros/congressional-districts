@@ -20,7 +20,7 @@ tract_data <- read.csv("Data/population_data_2010_by_tract.csv",
 
 ## Output Data
 # The output CSV file from the random districts tracts 2010 script
-output <- read.csv("District Outputs Tracts 2010/output20.csv",
+output <- read.csv("Tracts 2010 (alg1)/Export Data/District Outputs Tracts 2010/output20.csv",
                    colClass = "character") %>%
   dplyr::select(Geography,district)
 

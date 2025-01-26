@@ -3,7 +3,6 @@
 
 ### load libraries ----------------------------------------------------------------------
 
-library(readxl)
 library(tibble)
 library(sf)
 library(mapview)
@@ -35,7 +34,7 @@ shape_tract <- sf::read_sf(
 
 ## Output Data
 # The output CSV file from the random districts tracts 2010 script
-output <- read.csv("District Outputs Tracts 2010/output30.csv",
+output <- read.csv("Tracts 2010 (alg1)/Export Data/District Outputs Tracts 2010/output30.csv",
                    colClass = "character") %>%
   dplyr::select(Geography,district)
 
@@ -45,7 +44,6 @@ area <- shape_tract %>%
   dplyr::left_join(output,
                    by = "Geography") %>%
   sf::st_as_sf()
-
 
 for(a in c(1:16)){
   
@@ -86,10 +84,13 @@ compactness_by_district <- district_map_shapefile %>%
     # Schwartzberg score as calculated below falls with the range of [0,1] and a score closer to 1
     # indicates a more compact district.
     `Compactness Schwartzberg` = 1 / (`District Perimeter` / (2 * pi * sqrt(`District Area` / pi))),
-    `Compactness Schwartzberg` = as.numeric(`Compactness Schwartzberg`)
+    `Compactness Schwartzberg` = as.numeric(`Compactness Schwartzberg`),
+    minimum_bounding_circle = lwgeom::st_minimum_bounding_circle(geometry),
+    mbc_area = sf::st_area(minimum_bounding_circle),
+    `Compactness Reock` = `District Area` / mbc_area
   ) %>%
   as.data.frame() %>%
-  dplyr::select(-district, -geometry)
+  dplyr::select(-c(district, geometry, minimum_bounding_circle, mbc_area))
 
 # mapview(compactness_by_district)
 
