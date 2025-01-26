@@ -21,7 +21,7 @@ shape_tract <- sf::read_sf(
 
 ## Output Data
 # The output CSV file from the random districts tracts 2010 script
-output <- read.csv("Tracts 2010 (alg1)/Export Data/District Outputs Tracts 2010/output20.csv",
+output <- read.csv("Tracts 2010 (alg1)/Export Data/District Outputs Tracts 2010/output30.csv",
                    colClass = "character") %>%
   dplyr::select(Geography,district)
 
@@ -62,4 +62,5 @@ map <- ggplot2::ggplot(data = district_map_shapefile,
 
 map
 
-ggsave(filename = "District Maps Tracts 2010/map20.png", plot = map)
+ggsave(filename = "Tracts 2010 (alg1)/Export Data/District Maps Tracts 2010/map30.png", plot = map)
+
