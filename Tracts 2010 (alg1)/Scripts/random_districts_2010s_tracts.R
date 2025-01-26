@@ -35,6 +35,7 @@ shape_tract <- sf::read_sf(
   dplyr::rename_with(tolower) %>%
   dplyr::rename(Geography = geoid10)
 
+
 ### format data ----------------------------------------------------------------------
 pop_tracts_total <- tract_data %>%
   dplyr::filter(
@@ -78,22 +79,7 @@ pop_tracts_total <- tract_data %>%
   # select columns
   dplyr::select(Geography, Population)
 
-# 
-# pop_vtds_total <- voting_district_data %>%
-#   # Ohio FIPS code is 39
-#   dplyr::filter(stringr::str_sub(Geography, 10, 11) == "39") %>%
-#   dplyr::select(Geography, Total) %>%
-#   dplyr::rename(Population = Total) %>%
-#   # convert all data to numeric values
-#   dplyr::mutate(
-#     Population = as.numeric(Population),
-#     Geography = stringr::str_sub(Geography, 10)
-#   ) %>%
-#   # select columns
-#   dplyr::select(Geography, Population) %>%
-#   # filter out district not in adjacency matrix/map file
-#   dplyr::filter(Geography != "39069035AAH")
-# 
+
 # # modify by merging enclave VTDs with surrounding VTD and combining populations,
 # # as these VTDs always have to stay paired with each other
 # 
@@ -260,10 +246,6 @@ isContig <- function(list, adjdf = adj){
     }
   
 }
-
-# split1 <- splitIntoTwo(pop_vtds_total_mod, adj_vtd_mod)
-# df <- pop_vtds_total_mod
-# adjdf <- adj_vtd_mod
 
 
 splitIntoTwo <- function(df = pop_tracts_total, adjdf = adj){

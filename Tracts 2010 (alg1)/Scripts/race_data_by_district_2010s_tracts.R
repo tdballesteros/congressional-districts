@@ -13,7 +13,6 @@ library(tidyverse)
 ### load data ----------------------------------------------------------------------
 ## Population Data
 # Source: US Census Bureau
-# tract data
 tract_data <- read.csv("Data/population_data_2010_by_tract.csv",
                        skip = 1,
                        colClasses = "character")
