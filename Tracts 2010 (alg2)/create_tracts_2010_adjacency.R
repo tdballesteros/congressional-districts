@@ -82,12 +82,13 @@ adjacency_matrix <- ohio2010shapefile %>%
   spdep::nb2mat(style = "B") %>%
   as.data.frame()
 
+names(adjacency_matrix) <- row.names(adjacency_matrix)
+
 # arrange columns in numeric order
 adjacency_matrix <- adjacency_matrix[, order(names(adjacency_matrix))]
 # arrange rows in numeric order
 adjacency_matrix <- adjacency_matrix[order(attr(adjacency_matrix,"row.names")),]
 
-names(adjacency_matrix) <- row.names(adjacency_matrix)
 adjacency_matrix <- adjacency_matrix %>%
   # convert row names to a variable column
   tibble::rownames_to_column(var = "SOURCE_TRACTID")
@@ -110,19 +111,20 @@ adjacency_matrix_v2 <- ohio2010shapefile_v2 %>%
   spdep::nb2mat(style = "B") %>%
   as.data.frame()
 
+names(adjacency_matrix_v2) <- row.names(adjacency_matrix_v2)
+
 # arrange columns in numeric order
 adjacency_matrix_v2 <- adjacency_matrix_v2[, order(names(adjacency_matrix_v2))]
 # arrange rows in numeric order
 adjacency_matrix_v2 <- adjacency_matrix_v2[order(attr(adjacency_matrix_v2,"row.names")),]
 
-names(adjacency_matrix_v2) <- row.names(adjacency_matrix_v2)
 adjacency_matrix_v2 <- adjacency_matrix_v2 %>%
   # convert row names to a variable column
   tibble::rownames_to_column(var = "SOURCE_TRACTID")
 
 # create adjacency list
 adjacency_list_v2 <- adjacency_matrix_v2 %>%
-  tidyr::pivot_longer(2:2946, names_to = "NEIGHBOR_TRACTID", values_to = "Value") %>%
+  tidyr::pivot_longer(2:2947, names_to = "NEIGHBOR_TRACTID", values_to = "Value") %>%
   dplyr::filter(Value == 1) %>%
   dplyr::select(-Value)
 
@@ -143,16 +145,43 @@ distance_matrix_v2 <- adjacency_matrix_v2 %>%
   igraph::graph_from_adjacency_matrix(mode = "undirected", diag = FALSE) %>%
   igraph::distances()
 
+### verify files ----------------------------------------------------------------------
+
+# test if adjacency_list is equal to itself if the source and neighbor columns are swapped
+adjacency_list_swapped <- adjacency_list %>%
+  dplyr::rename(
+    SOURCE_TRACTID = NEIGHBOR_TRACTID,
+    NEIGHBOR_TRACTID = SOURCE_TRACTID
+  ) %>%
+  dplyr::arrange(SOURCE_TRACTID, NEIGHBOR_TRACTID) %>%
+  dplyr::relocate(SOURCE_TRACTID, .before = NEIGHBOR_TRACTID)
+
+all.equal(adjacency_list, adjacency_list_swapped)
+
+adjacency_list_v2_swapped <- adjacency_list_v2 %>%
+  dplyr::rename(
+    SOURCE_TRACTID = NEIGHBOR_TRACTID,
+    NEIGHBOR_TRACTID = SOURCE_TRACTID
+  ) %>%
+  dplyr::arrange(SOURCE_TRACTID, NEIGHBOR_TRACTID) %>%
+  dplyr::relocate(SOURCE_TRACTID, .before = NEIGHBOR_TRACTID)
+
+all.equal(adjacency_list_v2, adjacency_list_v2_swapped)
 
 ### export files ----------------------------------------------------------------------
 
-write.csv(adjacency_matrix, "Data/Calculated_Adjacency_Matrix_Tracts_2010.csv")
-write.csv(adjacency_matrix_v2, "Data/Calculated_Adjacency_Matrix_v2_Tracts_2010.csv")
+write.csv(adjacency_matrix, "Data/Calculated_Adjacency_Matrix_Tracts_2010.csv",
+          row.names = FALSE)
+write.csv(adjacency_matrix_v2, "Data/Calculated_Adjacency_Matrix_v2_Tracts_2010.csv",
+          row.names = FALSE)
 
-write.csv(adjacency_list, "Data/Calculated_Adjacency_List_Tracts_2010.csv")
-write.csv(adjacency_list_v2, "Data/Calculated_Adjacency_List_v2_Tracts_2010.csv")
+write.csv(adjacency_list, "Data/Calculated_Adjacency_List_Tracts_2010.csv",
+          row.names = FALSE)
+write.csv(adjacency_list_v2, "Data/Calculated_Adjacency_List_v2_Tracts_2010.csv",
+          row.names = FALSE)
 
-write.csv(distance_matrix, "Data/Calculated_Distance_Matrix_Tracts_2010.csv")
-write.csv(distance_matrix_v2, "Data/Calculated_Distance_Matrix_v2_Tracts_2010.csv")
-
+write.csv(distance_matrix, "Data/Calculated_Distance_Matrix_Tracts_2010.csv",
+          row.names = FALSE)
+write.csv(distance_matrix_v2, "Data/Calculated_Distance_Matrix_v2_Tracts_2010.csv",
+          row.names = FALSE)
 
