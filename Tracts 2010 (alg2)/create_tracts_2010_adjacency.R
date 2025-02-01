@@ -3,7 +3,8 @@
 # shared boundary point does not meet the contiguity condition and more than one shared point is required;
 # note that more than one shared boundary point does not necessarily mean a shared boundary line).
 
-# Create second versions without select tracts: 39095990000, 39043990100, 39093990200, 39035990000, 39085990000, 39007990000
+# Create second versions without select tracts:
+# 39095990000, 39043990100, 39093990200, 39035990000, 39085990000, 39007990000
 # These tracts solely contain water and do not connect any island tracts to the mainland.
 
 
