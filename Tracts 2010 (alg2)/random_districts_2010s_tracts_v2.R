@@ -388,15 +388,9 @@ identifyEnclaves <- function(tract_list, adjdf = adjacency_list){
   
 }
 
-
-# split1 <- splitIntoTwo(pop_tracts_total_v2, adjacency_list_v2, version = ver)
+# split1 <- splitIntoTwo(pop_tracts_total, adjacency_list, version = ver)
 df <- pop_tracts_total
 adjdf <- adjacency_list
-version <- 1
-
-# split4e <- splitIntoTwo(pop_eigth5, adj_eigth5, version = ver)
-df <- pop_eigth5
-adjdf <- adj_eigth5
 version <- ver
 
 
@@ -599,7 +593,11 @@ splitIntoTwo <- function(df = pop_tracts_total, adjdf = adjacency_list, version 
         dplyr::mutate(cumsum = cumsum(Population)) %>%
         dplyr::ungroup()
       
-      index_half1 <- max(which(tmp_half1$cumsum < pop_difference)) + 1
+      index_half1 <- dplyr::case_when(
+        tmp_half1$cumsum[1] >= pop_difference ~ 1,
+        tmp_half1$cumsum[1] < pop_difference ~ max(which(tmp_half1$cumsum < pop_difference)) + 1,
+        .default = 1
+      )
       
       half1_add_list <- tmp_half1 %>%
         dplyr::filter(row_number() <= index_half1) %>%
@@ -621,7 +619,11 @@ splitIntoTwo <- function(df = pop_tracts_total, adjdf = adjacency_list, version 
         dplyr::mutate(cumsum = cumsum(Population)) %>%
         dplyr::ungroup()
       
-      index_half2 <- max(which(tmp_half2$cumsum < pop_difference)) + 1
+      index_half2 <- dplyr::case_when(
+        tmp_half2$cumsum[1] >= pop_difference ~ 1,
+        tmp_half2$cumsum[1] < pop_difference ~ max(which(tmp_half2$cumsum < pop_difference)) + 1,
+        .default = 1
+      )      
       
       half2_add_list <- tmp_half2 %>%
         dplyr::filter(row_number() <= index_half2) %>%
@@ -817,7 +819,11 @@ splitIntoTwo <- function(df = pop_tracts_total, adjdf = adjacency_list, version 
       dplyr::mutate(cumsum = cumsum(Population)) %>%
       dplyr::ungroup()
     
-    cutoff <- max(which(adding_to_half1$cumsum < pop_differential_half1)) + 1
+    cutoff <- dplyr::case_when(
+      adding_to_half1$cumsum[1] >= pop_differential_half1 ~ 1,
+      adding_to_half1$cumsum[1] < pop_differential_half1 ~ max(which(adding_to_half1$cumsum < pop_differential_half1)) + 1,
+      .default = 1
+    )
     
     adding_to_half1 <- adding_to_half1 %>%
       dplyr::filter(row_number() <= cutoff)
@@ -883,7 +889,11 @@ splitIntoTwo <- function(df = pop_tracts_total, adjdf = adjacency_list, version 
       dplyr::mutate(cumsum = cumsum(Population)) %>%
       dplyr::ungroup()
     
-    cutoff <- max(which(adding_to_half2$cumsum < pop_differential_half2)) + 1
+    cutoff <- dplyr::case_when(
+      adding_to_half2$cumsum[1] >= pop_differential_half2 ~ 1,
+      adding_to_half2$cumsum[1] < pop_differential_half2 ~ max(which(adding_to_half2$cumsum < pop_differential_half2)) + 1,
+      .default = 1
+    )
     
     adding_to_half2 <- adding_to_half2 %>%
       dplyr::filter(row_number() <= cutoff)
@@ -944,119 +954,6 @@ splitIntoTwo <- function(df = pop_tracts_total, adjdf = adjacency_list, version 
       Geography %in% enclave_list_half_b ~ 1,
       .default = half
     ))
-  
-  # # population of enclave tracts switched to the other half
-  # tracts_to_half_a_pop <- 0
-  # tracts_to_half_b_pop <- 0
-  # 
-  # df_length_1 <- 1
-  # df_length_2 <- 1
-  # 
-  # while((tracts_to_half_a_pop < enclave_pop_half_b) & (df_length_1 > 0)){
-  #   
-  #   tracts_to_half_a <- tdf %>%
-  #     dplyr::rowwise() %>%
-  #     dplyr::mutate(
-  #       half1_adj = adjdf_mod %>%
-  #         dplyr::filter(
-  #           SOURCE_TRACTID == Geography,
-  #           NEIGHBOR_TRACTID %in% half1_tract_list
-  #         ) %>%
-  #         nrow(),
-  #       half2_adj = adjdf_mod %>%
-  #         dplyr::filter(
-  #           SOURCE_TRACTID == Geography,
-  #           NEIGHBOR_TRACTID %in% half2_tract_list
-  #         ) %>%
-  #         nrow(),
-  #       total_adj = half1_adj + half2_adj,
-  #       half1_adj_perc = half1_adj / total_adj,
-  #       half2_adj_perc = half2_adj / total_adj
-  #     ) %>%
-  #     # tracts currently within half 1 which border half 2
-  #     # and have at least 2 adjacent tracts within half 1 (to
-  #     # preserve contiguousness)
-  #     dplyr::filter(
-  #       half == 1,
-  #       half1_adj > 1,
-  #       half2_adj > 0
-  #     ) %>%
-  #     # ordered from highest proportion of adjacent tracts in half 2
-  #     dplyr::arrange(desc(half1_adj_perc)) %>%
-  #     dplyr::group_by() %>%
-  #     dplyr::mutate(cumsum = cumsum(Population)) %>%
-  #     dplyr::ungroup()
-  #   
-  #   cutoff <- which.max(tracts_to_half_a$cumsum < enclave_pop_half_a) + 1
-  #   
-  #   tracts_to_half_a <- tracts_to_half_a %>%
-  #     dplyr::filter(row_number() <= cutoff)
-  #   
-  #   tracts_to_half_a_pop <- tracts_to_half_a_pop + sum(tracts_to_half_a$Population, na.rm = TRUE)
-  #   tracts_to_half_a_list <- tracts_to_half_a$Geography
-  #   
-  #   df_length_1 <- nrow(tracts_to_half_a)
-  #   
-  #   tdf <- tdf %>%
-  #     dplyr::mutate(half = dplyr::case_when(
-  #       Geography %in% tracts_to_half_a_list ~ 1,
-  #       .default = half
-  #     ))
-  #   
-  # }
-  # 
-  # while((tracts_to_half_b_pop < enclave_pop_half_a) & (df_length_2 > 0)){
-  #   
-  #   tracts_to_half_b <- tdf %>%
-  #     dplyr::rowwise() %>%
-  #     dplyr::mutate(
-  #       half1_adj = adjdf_mod %>%
-  #         dplyr::filter(
-  #           SOURCE_TRACTID == Geography,
-  #           NEIGHBOR_TRACTID %in% half1_tract_list
-  #         ) %>%
-  #         nrow(),
-  #       half2_adj = adjdf_mod %>%
-  #         dplyr::filter(
-  #           SOURCE_TRACTID == Geography,
-  #           NEIGHBOR_TRACTID %in% half2_tract_list
-  #         ) %>%
-  #         nrow(),
-  #       total_adj = half1_adj + half2_adj,
-  #       half1_adj_perc = half1_adj / total_adj,
-  #       half2_adj_perc = half2_adj / total_adj
-  #     ) %>%
-  #     # tracts currently within half 2 which border half 1
-  #     # and have at least 2 adjacenct tracts within half 2 (to
-  #     # preserve contiguousness)
-  #     dplyr::filter(
-  #       half == 2,
-  #       half1_adj > 0,
-  #       half2_adj > 1
-  #     ) %>%
-  #     # ordered from highest proportion of adjacent tracts in half 2
-  #     dplyr::arrange(desc(half2_adj_perc)) %>%
-  #     dplyr::group_by() %>%
-  #     dplyr::mutate(cumsum = cumsum(Population)) %>%
-  #     dplyr::ungroup()
-  #   
-  #   cutoff <- which.max(tracts_to_half_b$cumsum < enclave_pop_half_b) + 1
-  #   
-  #   tracts_to_half_b <- tracts_to_half_b %>%
-  #     dplyr::filter(row_number() <= cutoff)
-  #   
-  #   tracts_to_half_b_pop <- tracts_to_half_b_pop + sum(tracts_to_half_b$Population, na.rm = TRUE)
-  #   tracts_to_half_b_list <- tracts_to_half_b$Geography
-  #   
-  #   df_length_2 <- nrow(tracts_to_half_b)
-  #   
-  #   tdf <- tdf %>%
-  #     dplyr::mutate(half = dplyr::case_when(
-  #       Geography %in% tracts_to_half_b_list ~ 2,
-  #       .default = half
-  #     ))
-  #   
-  # }
 
   # pull tracts for tracts surrounding enclaves, to split back into the
   # surrounding tract and its enclave(s)
@@ -1132,23 +1029,23 @@ splitIntoTwo <- function(df = pop_tracts_total, adjdf = adjacency_list, version 
   
 }
 
-plottest <- tdf %>%
-  dplyr::full_join(shape_tract, by = "Geography") %>%
-  dplyr::filter(Geography %in% half2_list) %>%
-  sf::st_as_sf()
-mapview(plottest)
 
 ### Split 1: Two Parts ----------------------------------------------------------------------
 ver <- 1
 
+start_time <- Sys.time()
 split1 <- splitIntoTwo(pop_tracts_total, adjacency_list, version = ver)
+end_time <- Sys.time()
+end_time - start_time
+# estimated typical time: 30-35 seconds
+
 # split1 <- splitIntoTwo(pop_tracts_total_v2, adjacency_list_v2, version = ver)
 
-maptest <- split1[[1]] %>%
-  dplyr::full_join(shape_tract, by = "Geography") %>%
-  dplyr::filter(!is.na(Population)) %>%
-  sf::st_as_sf()
-mapview(maptest)
+# maptest <- split1[[1]] %>%
+#   dplyr::full_join(shape_tract, by = "Geography") %>%
+#   dplyr::filter(!is.na(Population)) %>%
+#   sf::st_as_sf()
+# mapview(maptest)
 
 pop_half1 <- split1[[1]]
 pop_half2 <- split1[[2]]
@@ -1166,7 +1063,11 @@ sum(pop_half2$Population, na.rm = TRUE)
 #### Split 2A --------------------------------------------------------------------------------
 # Split Half1 into Quarter1 and Quarter2
 
+start_time <- Sys.time()
 split2a <- splitIntoTwo(pop_half1, adj_half1, version = ver)
+end_time <- Sys.time()
+end_time - start_time
+
 pop_quarter1 <- split2a[[1]]
 pop_quarter2 <- split2a[[2]]
 
@@ -1176,7 +1077,11 @@ adj_quarter2 <- split2a[[4]]
 #### Split 2B --------------------------------------------------------------------------------
 # Split Half2 into Quarter3 and Quarter4
 
+start_time <- Sys.time()
 split2b <- splitIntoTwo(pop_half2, adj_half2, version = ver)
+end_time <- Sys.time()
+end_time - start_time
+
 pop_quarter3 <- split2b[[1]]
 pop_quarter4 <- split2b[[2]]
 
@@ -1197,7 +1102,11 @@ sum(pop_quarter4$Population, na.rm = TRUE)
 #### Split 3A --------------------------------------------------------------------------------
 # Split Quarter1 into Eigth1 and Eigth2
 
+start_time <- Sys.time()
 split3a <- splitIntoTwo(pop_quarter1, adj_quarter1, version = ver)
+end_time <- Sys.time()
+end_time - start_time
+
 pop_eigth1 <- split3a[[1]]
 pop_eigth2 <- split3a[[2]]
 
@@ -1207,7 +1116,11 @@ adj_eigth2 <- split3a[[4]]
 #### Split 3B --------------------------------------------------------------------------------
 # Split Quarter2 into Eigth3 and Eigth4
 
+start_time <- Sys.time()
 split3b <- splitIntoTwo(pop_quarter2, adj_quarter2, version = ver)
+end_time <- Sys.time()
+end_time - start_time
+
 pop_eigth3 <- split3b[[1]]
 pop_eigth4 <- split3b[[2]]
 
@@ -1217,7 +1130,11 @@ adj_eigth4 <- split3b[[4]]
 #### Split 3C --------------------------------------------------------------------------------
 # Split Quarter3 into Eigth5 and Eigth6
 
+start_time <- Sys.time()
 split3c <- splitIntoTwo(pop_quarter3, adj_quarter3, version = ver)
+end_time <- Sys.time()
+end_time - start_time
+
 pop_eigth5 <- split3c[[1]]
 pop_eigth6 <- split3c[[2]]
 
@@ -1227,7 +1144,11 @@ adj_eigth6 <- split3c[[4]]
 #### Split 3D --------------------------------------------------------------------------------
 # Split Quarter4 into Eigth7 and Eigth8
 
+start_time <- Sys.time()
 split3d <- splitIntoTwo(pop_quarter4, adj_quarter4, version = ver)
+end_time <- Sys.time()
+end_time - start_time
+
 pop_eigth7 <- split3d[[1]]
 pop_eigth8 <- split3d[[2]]
 
@@ -1237,14 +1158,14 @@ adj_eigth8 <- split3d[[4]]
 #### Split 3 Populations --------------------------------------------------------------------------------
 
 # population totals for each quarter
-# sum(pop_eigth1$Population, na.rm = TRUE)
-# sum(pop_eigth2$Population, na.rm = TRUE)
-# sum(pop_eigth3$Population, na.rm = TRUE)
-# sum(pop_eigth4$Population, na.rm = TRUE)
-# sum(pop_eigth5$Population, na.rm = TRUE)
-# sum(pop_eigth6$Population, na.rm = TRUE)
-# sum(pop_eigth7$Population, na.rm = TRUE)
-# sum(pop_eigth8$Population, na.rm = TRUE)
+sum(pop_eigth1$Population, na.rm = TRUE)
+sum(pop_eigth2$Population, na.rm = TRUE)
+sum(pop_eigth3$Population, na.rm = TRUE)
+sum(pop_eigth4$Population, na.rm = TRUE)
+sum(pop_eigth5$Population, na.rm = TRUE)
+sum(pop_eigth6$Population, na.rm = TRUE)
+sum(pop_eigth7$Population, na.rm = TRUE)
+sum(pop_eigth8$Population, na.rm = TRUE)
 
 
 ### Split 4: Sixteen Parts ----------------------------------------------------------------------
@@ -1252,7 +1173,11 @@ adj_eigth8 <- split3d[[4]]
 #### Split 4A --------------------------------------------------------------------------------
 # Split Eigth1 into Sixteenth1 and Sixteenth2
 
+start_time <- Sys.time()
 split4a <- splitIntoTwo(pop_eigth1, adj_eigth1, version = ver)
+end_time <- Sys.time()
+end_time - start_time
+
 pop_sixteenth1 <- split4a[[1]]
 pop_sixteenth2 <- split4a[[2]]
 
@@ -1262,7 +1187,11 @@ adj_sixteenth2 <- split4a[[4]]
 #### Split 4B --------------------------------------------------------------------------------
 # Split Eigth2 into Sixteenth3 and Sixteenth4
 
+start_time <- Sys.time()
 split4b <- splitIntoTwo(pop_eigth2, adj_eigth2, version = ver)
+end_time <- Sys.time()
+end_time - start_time
+
 pop_sixteenth3 <- split4b[[1]]
 pop_sixteenth4 <- split4b[[2]]
 
@@ -1272,7 +1201,11 @@ adj_sixteenth4 <- split4b[[4]]
 #### Split 4C --------------------------------------------------------------------------------
 # Split Eigth3 into Sixteenth5 and Sixteenth6
 
+start_time <- Sys.time()
 split4c <- splitIntoTwo(pop_eigth3, adj_eigth3, version = ver)
+end_time <- Sys.time()
+end_time - start_time
+
 pop_sixteenth5 <- split4c[[1]]
 pop_sixteenth6 <- split4c[[2]]
 
@@ -1282,7 +1215,11 @@ adj_sixteenth6 <- split4c[[4]]
 #### Split 4D --------------------------------------------------------------------------------
 # Split Eigth4 into Sixteenth7 and Sixteenth8
 
+start_time <- Sys.time()
 split4d <- splitIntoTwo(pop_eigth4, adj_eigth4, version = ver)
+end_time <- Sys.time()
+end_time - start_time
+
 pop_sixteenth7 <- split4d[[1]]
 pop_sixteenth8 <- split4d[[2]]
 
@@ -1292,7 +1229,11 @@ adj_sixteenth8 <- split4d[[4]]
 #### Split 4E --------------------------------------------------------------------------------
 # Split Eigth5 into Sixteenth9 and Sixteenth10
 
+start_time <- Sys.time()
 split4e <- splitIntoTwo(pop_eigth5, adj_eigth5, version = ver)
+end_time <- Sys.time()
+end_time - start_time
+
 pop_sixteenth9 <- split4e[[1]]
 pop_sixteenth10 <- split4e[[2]]
 
@@ -1302,7 +1243,11 @@ adj_sixteenth10 <- split4e[[4]]
 #### Split 4F --------------------------------------------------------------------------------
 # Split Eigth6 into Sixteenth11 and Sixteenth12
 
+start_time <- Sys.time()
 split4f <- splitIntoTwo(pop_eigth6, adj_eigth6, version = ver)
+end_time <- Sys.time()
+end_time - start_time
+
 pop_sixteenth11 <- split4f[[1]]
 pop_sixteenth12 <- split4f[[2]]
 
@@ -1312,7 +1257,11 @@ adj_sixteenth12 <- split4f[[4]]
 #### Split 4G --------------------------------------------------------------------------------
 # Split Eigth7 into Sixteenth13 and Sixteenth14
 
+start_time <- Sys.time()
 split4g <- splitIntoTwo(pop_eigth7, adj_eigth7, version = ver)
+end_time <- Sys.time()
+end_time - start_time
+
 pop_sixteenth13 <- split4g[[1]]
 pop_sixteenth14 <- split4g[[2]]
 
@@ -1322,7 +1271,11 @@ adj_sixteenth14 <- split4g[[4]]
 #### Split 4H --------------------------------------------------------------------------------
 # Split Eigth8 into Sixteenth15 and Sixteenth16
 
+start_time <- Sys.time()
 split4h <- splitIntoTwo(pop_eigth8, adj_eigth8, version = ver)
+end_time <- Sys.time()
+end_time - start_time
+
 pop_sixteenth15 <- split4h[[1]]
 pop_sixteenth16 <- split4h[[2]]
 
@@ -1377,7 +1330,7 @@ pop_final <- pop_tracts_total %>%
 
 # table(pop_final$district, useNA = "always")
 
-# write.csv(pop_final, "District Outputs Tracts 2010/output30.csv", row.names = FALSE)
+write.csv(pop_final, "Tracts 2010 (alg2)/Export Data/District Outputs Tracts 2010/output05.csv", row.names = FALSE)
 
 
 ### Create Map -----------------------------------------------------------------------
