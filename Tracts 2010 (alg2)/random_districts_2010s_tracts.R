@@ -2,10 +2,6 @@
 # This file computes Ohio's 16 congressional districts using the 2010 US Census data and 2020
 # election results, which used districts drawn from the 2010 Census data.
 
-# v2 changes:
-## Adjacency matrix is calculated from the US Census Bureau / TIGER/Line shapefile directly and
-## no longer uses queen's adjacency (overlap must be at more than one point)
-
 
 ### load libraries ----------------------------------------------------------------------
 library(readxl)
@@ -21,22 +17,24 @@ library(tidyverse)
 
 ## Adjacency Matrix/List
 # Source: Derived from US Census Bureau and TIGER/Line
-# adjacency_matrix <- read.csv("Data/Calculated_Adjacency_Matrix_Tracts_2010.csv",
-#                              colClasses = "character")
-adjacency_list <- read.csv("Data/Calculated_Adjacency_List_Tracts_2010.csv",
-                           colClasses = "character")
+adjacency_list <- read.csv(
+  "Data/Calculated_Adjacency_List_Tracts_2010.csv",
+  colClasses = "character"
+  )
 
-# v2 removes six unpopulated lake tracts
-# adjacency_matrix_v2 <- read.csv("Data/Calculated_Adjacency_Matrix_v2_Tracts_2010.csv",
-#                                 colClasses = "character")
-adjacency_list_v2 <- read.csv("Data/Calculated_Adjacency_List_v2_Tracts_2010.csv",
-                              colClasses = "character")
+# v2 removes six unpopulated tracts in Lake Erie
+adjacency_list_v2 <- read.csv(
+  "Data/Calculated_Adjacency_List_v2_Tracts_2010.csv",
+  colClasses = "character"
+  )
 
 ## Population Data
 # Source: US Census Bureau
-population_data <- read.csv("Data/population_data_2010_by_tract.csv",
-                            skip = 1,
-                            colClasses = "character")
+population_data <- read.csv(
+  "Data/population_data_2010_by_tract.csv",
+  skip = 1,
+  colClasses = "character"
+  )
 
 ## Map Shapefiles
 # Source: US Census Bureau and TIGER/Line
@@ -56,42 +54,25 @@ pop_tracts_total <- population_data %>%
     ) %>%
   dplyr::select(Geography, Total) %>%
   dplyr::rename(Population = Total) %>%
-  # several tracts have non-numeric entries in the Population  field; manually
-  # correct these and convert all data to numeric values
   dplyr::mutate(
+    Geography = stringr::str_sub(Geography, 10),
+    # several tracts have non-numeric entries in the Population  field; manually
+    # correct these and convert all data to numeric values
     Population = dplyr::case_when(
-      Geography == "1400000US39035118800" ~ 3081,
-      Geography == "1400000US39035141300" ~ 2661,
-      Geography == "1400000US39035187105" ~ 2176,
-      Geography == "1400000US39035187106" ~ 5198,
-      Geography == "1400000US39035195900" ~ 4233,
-      Geography == "1400000US39055310200" ~ 1991,
-      Geography == "1400000US39055310600" ~ 6148,
-      Geography == "1400000US39055310800" ~ 6621,
-      Geography == "1400000US39055310900" ~ 3200,
-      Geography == "1400000US39055311000" ~ 3637,
-      Geography == "1400000US39055311300" ~ 4412,
-      Geography == "1400000US39055311400" ~ 5537,
-      Geography == "1400000US39055311600" ~ 3810,
-      Geography == "1400000US39055311700" ~ 4089,
-      Geography == "1400000US39055311800" ~ 7306,
-      Geography == "1400000US39055312100" ~ 4131,
-      Geography == "1400000US39055312202" ~ 4323,
-      Geography == "1400000US39055312300" ~ 4643,
-      Geography == "1400000US39055312400" ~ 2544,
-      Geography == "1400000US39085206400" ~ 4701,
-      Geography == "1400000US39155930500" ~ 6115,
+      Geography %in% c(
+        "39035118800", "39035141300", "39035187105", "39035187106", "39035195900",
+        "39055310200", "39055310600", "39055310800", "39055310900", "39055311000",
+        "39055311300", "39055311400", "39055311600", "39055311700", "39055311800",
+        "39055312100", "39055312202", "39055312300", "39055312400", "39085206400",
+        "39155930500") ~ as.numeric(stringr::str_sub(Population, 1, 4)),
       .default = as.numeric(Population)
-    )) %>%
-  dplyr::mutate(
-    Geography = stringr::str_sub(Geography, 10)
-  ) %>%
-  # select columns
-  dplyr::select(Geography, Population)
+    )
+  )
 
 pop_tracts_total_v2 <- pop_tracts_total %>%
-  dplyr::filter(Geography %!in% c("39095990000", "39043990100", "39093990200",
-                                  "39035990000", "39085990000", "39007990000"))
+  dplyr::filter(Geography %!in% c(
+    "39095990000", "39043990100", "39093990200", "39035990000", "39085990000", "39007990000"
+    ))
 
 
 # create modified population data by merging tract enclaves with their surrounding tract,
@@ -100,11 +81,8 @@ pop_tracts_total_v2 <- pop_tracts_total %>%
 # SOURCE_TRACTID is the enclave, NEIGHBOR_TRACTID is the surrounding tract
 tract_enclave_df <- adjacency_list %>%
   dplyr::group_by(SOURCE_TRACTID) %>%
-  dplyr::tally() %>%
-  dplyr::ungroup() %>%
-  dplyr::filter(n == 1) %>%
-  dplyr::select(-n) %>%
-  dplyr::left_join(adjacency_list, by = "SOURCE_TRACTID")
+  dplyr::filter(n() == 1) %>%
+  dplyr::ungroup()
 
 # additional enclaves
 tract_enclaves_to_add <- data.frame(
@@ -149,52 +127,6 @@ tract_enclave_df_v2 <- tract_enclave_df %>%
   tibble::add_row(
     ENCLAVE_TRACTID = "39007000103",
     SURROUNDING_TRACTID = "39007000101"
-  )
-
-tract_enclave_list <- tract_enclave_df$ENCLAVE_TRACTID
-tract_enclave_list_v2 <- tract_enclave_df_v2$ENCLAVE_TRACTID
-
-tract_surrounding_list <- tract_enclave_df$SURROUNDING_TRACTID
-tract_surrounding_list_v2 <- tract_enclave_df_v2$SURROUNDING_TRACTID
-
-# create modified population dataset with enclaves merged into their surrounding tracts' population
-pop_tracts_total_mod <- pop_tracts_total %>%
-  dplyr::full_join(tract_enclave_df,
-                   dplyr::join_by("Geography" == "ENCLAVE_TRACTID")) %>%
-  dplyr::mutate(Geography = dplyr::coalesce(SURROUNDING_TRACTID, Geography)) %>%
-  dplyr::select(-SURROUNDING_TRACTID) %>%
-  dplyr::group_by(Geography) %>%
-  dplyr::summarise(Population = sum(Population, na.rm = TRUE)) %>%
-  dplyr::ungroup()
-
-pop_tracts_total_mod_v2 <- pop_tracts_total %>%
-  dplyr::full_join(tract_enclave_df_v2,
-                   dplyr::join_by("Geography" == "ENCLAVE_TRACTID")) %>%
-  dplyr::mutate(Geography = dplyr::coalesce(SURROUNDING_TRACTID, Geography)) %>%
-  dplyr::select(-SURROUNDING_TRACTID) %>%
-  dplyr::group_by(Geography) %>%
-  dplyr::summarise(Population = sum(Population, na.rm = TRUE)) %>%
-  dplyr::ungroup()
-
-# create modified adjacency matrices/lists without enclaves
-# adjacency_matrix_mod <- adjacency_matrix %>%
-#   dplyr::select(-tract_enclave_df$ENCLAVE_TRACTID) %>%
-#   dplyr::filter(SOURCE_TRACTID %!in% tract_enclave_df$ENCLAVE_TRACTID)
-
-adjacency_list_mod <- adjacency_list %>%
-  dplyr::filter(
-    SOURCE_TRACTID %!in% tract_enclave_df$ENCLAVE_TRACTID,
-    NEIGHBOR_TRACTID %!in% tract_enclave_df$ENCLAVE_TRACTID
-    )
-
-# adjacency_matrix_mod_v2 <- adjacency_matrix_v2 %>%
-#   dplyr::select(-tract_enclave_df_v2$ENCLAVE_TRACTID) %>%
-#   dplyr::filter(SOURCE_TRACTID %!in% tract_enclave_df_v2$ENCLAVE_TRACTID)
-
-adjacency_list_mod_v2 <- adjacency_list_v2 %>%
-  dplyr::filter(
-    SOURCE_TRACTID %!in% tract_enclave_df_v2$ENCLAVE_TRACTID,
-    NEIGHBOR_TRACTID %!in% tract_enclave_df_v2$ENCLAVE_TRACTID
   )
 
 
@@ -1420,7 +1352,7 @@ pop_final <- pop_tracts_total %>%
 
 # table(pop_final$district, useNA = "always")
 
-write.csv(pop_final, "Tracts 2010 (alg2)/Export Data/District Outputs Tracts 2010/output10.csv", row.names = FALSE)
+write.csv(pop_final, "Tracts 2010 (alg2)/Export Data/District Outputs Tracts 2010/output15.csv", row.names = FALSE)
 
 
 ### Create Map -----------------------------------------------------------------------
