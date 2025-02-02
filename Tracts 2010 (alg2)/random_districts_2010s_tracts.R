@@ -1105,11 +1105,11 @@ end_time - start_time
 
 # split1 <- splitIntoTwo(pop_tracts_total_v2, adjacency_list_v2, version = ver)
 
-maptest <- split1[[1]] %>%
-  dplyr::full_join(shape_tract, by = "Geography") %>%
-  dplyr::filter(!is.na(Population)) %>%
-  sf::st_as_sf()
-mapview(maptest)
+# maptest <- split1[[1]] %>%
+#   dplyr::full_join(shape_tract, by = "Geography") %>%
+#   dplyr::filter(!is.na(Population)) %>%
+#   sf::st_as_sf()
+# mapview(maptest)
 
 pop_half1 <- split1[[1]]
 pop_half2 <- split1[[2]]
@@ -1420,7 +1420,7 @@ pop_final <- pop_tracts_total %>%
 
 # table(pop_final$district, useNA = "always")
 
-write.csv(pop_final, "Tracts 2010 (alg2)/Export Data/District Outputs Tracts 2010/output02.csv", row.names = FALSE)
+write.csv(pop_final, "Tracts 2010 (alg2)/Export Data/District Outputs Tracts 2010/output10.csv", row.names = FALSE)
 
 
 ### Create Map -----------------------------------------------------------------------
