@@ -11,39 +11,46 @@ library(tidyverse)
 '%!in%' <- function(x,y)!('%in%'(x,y))
 
 ### load data ----------------------------------------------------------------------
+
 ## Population Data
 # Source: US Census Bureau
-tract_data <- read.csv("Data/population_data_2010_by_tract.csv",
-                       skip = 1,
-                       colClasses = "character")
+population_data <- read.csv(
+  "Data/population_data_2010_by_tract.csv",
+  skip = 1,
+  colClasses = "character"
+)
 
 ## Voting Data
 # Source: Redistricting Data Hub (RDH)
 # Source Website: https://redistrictingdatahub.org/state/ohio/
-voting_data <- read.csv("Data/ohio_2020_election_data_by_block.csv",
-                        colClasses = "character")
+voting_data <- read.csv(
+  "Data/ohio_2020_election_data_by_block.csv",
+  colClasses = "character"
+  )
 
 ## Output Data
 # The output CSV file from the raceData script
-output <- read.csv("Tracts 2010 (alg1)/Export Data/District Outputs Tracts 2010/output30.csv",
-                   colClass = "character") %>%
-  dplyr::select(Geography,district)
+output <- read.csv(
+  "Tracts 2010 (alg2)/Export Data/District Outputs Tracts 2010/output20.csv",
+  colClass = "character"
+  ) %>%
+  dplyr::select(Geography, district)
 
-# 2010 map
-shape_tract_2010 <- sf::read_sf(
-  dsn = "Data/gz_2010_39_140_00_500k/gz_2010_39_140_00_500k.shp") %>%
+## Map Shapefiles
+# Source: US Census Bureau and TIGER/Line
+shape_tract <- sf::read_sf(
+  dsn = "Data/tl_2010_39_tract10/tl_2010_39_tract10.shp") %>%
   dplyr::rename_with(tolower) %>%
-  dplyr::mutate(geo_id = stringr::str_sub(geo_id, 10))
-names(shape_tract_2010)[1] <- "Geography"
+  dplyr::rename(Geography = geoid10)
 
-# 2020 map
-shape_tract_2020 <- sf::read_sf(
-  dsn = "Data/tl_2020_39_tract/tl_2020_39_tract.shp") %>%
-  dplyr::rename_with(tolower)
-names(shape_tract_2020)[4] <- "Geography"
+# # 2020 map
+# shape_tract_2020 <- sf::read_sf(
+#   dsn = "Data/tl_2020_39_tract/tl_2020_39_tract.shp") %>%
+#   dplyr::rename_with(tolower)
+# names(shape_tract_2020)[4] <- "Geography"
 
 ### format data ----------------------------------------------------------------------
-pop_tracts_total <- tract_data %>%
+pop_tracts_total <- population_data %>%
   dplyr::filter(
     # Ohio FIPS code is 39
     stringr::str_sub(Geography, 10, 11) == "39",
@@ -55,35 +62,14 @@ pop_tracts_total <- tract_data %>%
   # several tracts have non-numeric entries in the Population  field; manually correct these
   # and convert all data to numeric values
   dplyr::mutate(
+    Geography = stringr::str_sub(Geography, 10),
     Population = dplyr::case_when(
-      Geography == "1400000US39035118800" ~ 3081,
-      Geography == "1400000US39035141300" ~ 2661,
-      Geography == "1400000US39035187105" ~ 2176,
-      Geography == "1400000US39035187106" ~ 5198,
-      Geography == "1400000US39035195900" ~ 4233,
-      Geography == "1400000US39055310200" ~ 1991,
-      Geography == "1400000US39055310600" ~ 6148,
-      Geography == "1400000US39055310800" ~ 6621,
-      Geography == "1400000US39055310900" ~ 3200,
-      Geography == "1400000US39055311000" ~ 3637,
-      Geography == "1400000US39055311300" ~ 4412,
-      Geography == "1400000US39055311400" ~ 5537,
-      Geography == "1400000US39055311600" ~ 3810,
-      Geography == "1400000US39055311700" ~ 4089,
-      Geography == "1400000US39055311800" ~ 7306,
-      Geography == "1400000US39055312100" ~ 4131,
-      Geography == "1400000US39055312202" ~ 4323,
-      Geography == "1400000US39055312300" ~ 4643,
-      Geography == "1400000US39055312400" ~ 2544,
-      Geography == "1400000US39085206400" ~ 4701,
-      Geography == "1400000US39155930500" ~ 6115,
+      Geography %in% c("39035118800", "39035141300", "39035187105", "39035187106", "39035195900", "39055310200",
+                       "39055310600", "39055310800", "39055310900", "39055311000", "39055311300", "39055311400",
+                       "39055311600", "39055311700", "39055311800", "39055312100", "39055312202", "39055312300",
+                       "39055312400", "39085206400", "39155930500")  ~ as.numeric(stringr::str_sub(Population, 1, 4)),
       .default = as.numeric(Population)
-    )) %>%
-  dplyr::mutate(
-    Geography = stringr::str_sub(Geography, 10)
-  ) %>%
-  # select columns
-  dplyr::select(Geography, Population)
+    ))
 
 
 voting_tracts_total <- voting_data %>%
@@ -111,7 +97,6 @@ voting_tracts_total <- voting_data %>%
       Geography %in% c("39025041001","39025041002") ~ "39025041000",
       Geography %in% c("39025041104","39025041105") ~ "39025041103",
       Geography %in% c("39025041201","39025041202") ~ "39025041200",
-      # 3902504150X
       Geography %in% c("39025042001","39025042002") ~ "39025042000",
       Geography %in% c("39027964501","39027964502") ~ "39027964500",
       Geography %in% c("39029951401","39029951402") ~ "39029951400",
@@ -119,16 +104,11 @@ voting_tracts_total <- voting_data %>%
       Geography == "39035117203" ~ "39035117202",
       Geography == "39035131105" ~ "39035131102",
       Geography %in% c("39035136104","39035136105") ~ "39035136102",
-      # 3903515260X
-      # 3903516060X
       Geography %in% c("39035172104","39035172105") ~ "39035172103",
-      # 3903517510X
-      # 390351751XX
       Geography %in% c("39035190505","39035190506") ~ "39035190504",
       Geography %in% c("39037555001","39037555002") ~ "39037555000",
       Geography %in% c("39037560101","39037560102") ~ "39037560100",
       Geography %in% c("39041011431","39041011432") ~ "39041011413",
-      # 390410115XX
       Geography %in% c("39043040801","39043040802") ~ "39043040800",
       Geography %in% c("39043041701","39043041702") ~ "39043041700",
       Geography %in% c("39045030601","39045030602") ~ "39045030600",
@@ -140,13 +120,10 @@ voting_tracts_total <- voting_data %>%
       Geography %in% c("39045032901","39045032902") ~ "39045032900",
       Geography %in% c("39045033101","39045033102") ~ "39045033100",
       Geography %in% c("39049001301","39049001302") ~ "39049001300",
-      # 3904900400X
       Geography %in% c("39049004301","39049004302") ~ "39049004300",
       Geography %in% c("39049005001","39049005002") ~ "39049005000",
-      # 390490062XX
       Geography == "39049006372" ~ "39049006371",
       Geography %in% c("39049006991","39049006992") ~ "39049006990",
-      # 3904900721X
       Geography %in% c("39049007552","39049007553") ~ "39049007551",
       Geography %in% c("39049008001","39049008002") ~ "39049008000",
       Geography %in% c("39049008381","39049008382") ~ "39049008370",
@@ -164,7 +141,6 @@ voting_tracts_total <- voting_data %>%
       Geography %in% c("39057220201","39057220202") ~ "39057220200",
       Geography %in% c("39057240303","39057240304") ~ "39057240301",
       Geography %in% c("39061002901","39061002902") ~ "39061002900",
-      # 3906100470X
       Geography %in% c("39061006501","39061006502") ~ "39061006500",
       Geography %in% c("39061020603","39061020604") ~ "39061020602",
       Geography %in% c("39061020763","39061020764") ~ "39061020761",
@@ -219,23 +195,18 @@ voting_tracts_total <- voting_data %>%
       Geography %in% c("39095005803","39095005804") ~ "39095005802",
       Geography %in% c("39095006801","39095006802") ~ "39095006800",
       Geography %in% c("39095007003","39095007004") ~ "39095007001",
-      # 3909500720X
-      # 3909500730X
       Geography %in% c("39095007401","39095007402") ~ "39095007400",
       Geography %in% c("39095007501","39095007502") ~ "39095007500",
       Geography %in% c("39095007801","39095007802") ~ "39095007800",
       Geography %in% c("39095007903","39095007904") ~ "39095007902",
-      # 3909500820X
       Geography %in% c("39095008303","39095008304") ~ "39095008301",
       Geography %in% c("39095008401","39095008402") ~ "39095008400",
       Geography %in% c("39095008501","39095008502") ~ "39095008500",
       Geography %in% c("39095008601","39095008602") ~ "39095008600",
       Geography %in% c("39095008701","39095008702","39095008703") ~ "39095008700",
       Geography %in% c("39095008801","39095008802") ~ "39095008800",
-      # 3909500890X
       Geography %in% c("39095009001","39095009002","39095009003") ~ "39095009000",
       Geography %in% c("39095009103","39095009104") ~ "39095009102",
-      # 3909500920X
       Geography %in% c("39095009901","39095009902") ~ "39095009900",
       Geography %in% c("39099800501","39099800502") ~ "39099800500",
       Geography %in% c("39099811301","39099811302") ~ "39099811300",
@@ -271,7 +242,6 @@ voting_tracts_total <- voting_data %>%
       Geography %in% c("39133601703","39133601704") ~ "39133601701",
       Geography %in% c("39133602101","39133602102") ~ "39133602100",
       Geography %in% c("39137030301","39137030302") ~ "39137030300",
-      # 3914195560X
       Geography %in% c("39141955801","39141955802") ~ "39141955800",
       Geography %in% c("39145002901","39145002902") ~ "39145002900",
       Geography %in% c("39151700701","39151700702") ~ "39151700700",
@@ -289,7 +259,6 @@ voting_tracts_total <- voting_data %>%
       Geography %in% c("39165030901","39165030902") ~ "39165030900",
       Geography %in% c("39165031001","39165031002") ~ "39165031000",
       Geography %in% c("39165031601","39165031602","39165031603") ~ "39165031600",
-      # 391650319XX
       Geography %in% c("39165032203","39165032204","39165032205","39165032206") ~ "39165032201",
       Geography %in% c("39167020201","39167020202") ~ "39167020200",
       Geography %in% c("39167021201","39167021202") ~ "39167021200",
@@ -368,8 +337,7 @@ voting_tracts_total <- voting_data %>%
     G20PRERTRU = sum(as.numeric(G20PRERTRU), na.rm = TRUE)
   ) %>%
   dplyr::ungroup()
-
-
+  
 merged_tracts <- list(
   c("39035161700", "39035161800", "39035197300"),
   c("39035106300", "39035106400", "39035197400"),
@@ -418,7 +386,7 @@ merged_tracts <- list(
 )
 
 
-full_voting_data <- dplyr::full_join(output,voting_tracts_total, by = "Geography") %>%
+full_voting_data <- dplyr::full_join(output, voting_tracts_total, by = "Geography") %>%
   dplyr::full_join(pop_tracts_total, by = "Geography") %>%
   dplyr::mutate(
     merge = dplyr::case_when(
@@ -499,138 +467,6 @@ full_voting_data <- dplyr::full_join(output,voting_tracts_total, by = "Geography
   ) %>%
   dplyr::mutate(across(everything(), ~ ifelse(is.nan(.), 0, .)))
 
-# missing <- full_voting_data %>%
-#   dplyr::filter(missing_data == TRUE) %>%
-#   dplyr::mutate(
-#     county = stringr::str_sub(Geography, 3, 5),
-#     tract = stringr::str_sub(Geography, 6)
-#   )
-# 
-# sum(missing$VAP_MOD, na.rm = TRUE)
-# sum(missing$Population, na.rm = TRUE)
-# 
-# missing_list <- missing %>%
-#   dplyr::pull(Geography)
-# 
-# missing_list_problems <- c(39035161700, 39035161800, 39035197300,
-# 39035106300, 39035106400, 39035197400,
-# 39035103100, 39035103400, 39035197500,
-# 39035104300, 39035104200, 39035197800,
-# 39035103900, 39035104100, 39035197700,
-# 39035104600, 39035104900, 39035197600,
-# 39035110501, 39035110801, 39035197900,
-# 39035160700, 39035160800, 39035161900,
-# 39035115200, 39035115100, 39035198100,
-# 39035115300, 39035114900, 39035198000,
-# 39035154300, 39035154700, 39035198200,
-# 39035188104, 39035193800, 39035197000,
-# 39035188105, 39035193900, 39035198300,
-# 39035194900, 39035194800, 39035197100,
-# 39035114700, 39035114300, 39035114800,
-# 39035113801, 39035114100, 39035198400,
-# 39035113101, 39035196500, 39035197200,
-# 39035113500, 39035113600, 39035198500,
-# 39035112400, 39035112800, 39035198700,
-# 39035112500, 39035112600, 39035198800,
-# 39035111800, 39035111902, 39035199000,
-# 39035111500, 39035111600, 39035198900,
-# 39035116100, 39035116200, 39035199200,
-# 39035118400, 39035118500, 39035199100,
-# 39035118700, 39035119100, 39035196800,
-# 39035119202, 39035119300, 39035198600,
-# 39035151400, 39035151100, 39035199300,
-# 39035152603, 39035152604, 39035152605,
-# 39141955601, 39141955602, 39141955604,
-# 39043040600, 39043041500, 39043041900,
-# 39049009333, 39049009331, 39049009393,
-# 39049007203, 39049007201, 39049007213,
-# 39061007900, 39061007800, 39061027700,
-# 39061005400, 39061010800, 39061027600,
-# 39061004701, 39061004702, 39061004703,
-# 39061004500, 39061025104, 39061027500,
-# 39081001700, 39081000800, 39081012400,
-# 39085206000, 39085205900, 39085206700,
-# 39093023700, 39093023800, 39093097500,
-# 39093070800, 39093071000, 39093097600,
-# 39095002200, 39095002300, 39095010500,
-# 39095003400, 39095003700, 39095010600,
-# 39099800400, 39099800300, 39099814200,
-# 39155920600, 39155920500, 39155934000)
-
-# missing_list2 <- missing_list[missing_list %!in% missing_list_problems]
-# 
-# missing_list_x <- missing %>%
-#   dplyr::filter(county == "165") %>%
-#   dplyr::pull(Geography)
-# 
-# 
-# map2010 <- shape_tract_2010 %>%
-#   dplyr::filter(Geography %in% missing_list2)
-# 
-# mapview(map2010)
-# 
-# map2020 <- shape_tract_2020 %>%
-#   dplyr::filter(Geography %in% missing_list2)
-# 
-# mapview(map2020)
-# 
-# plot2010 <- shape_tract_2010 %>%
-#   dplyr::select(Geography,geometry)
-# mapview(plot2010)
-# 
-# plot2020 <- shape_tract_2020 %>%
-#   dplyr::select(Geography,geometry)
-# 
-# mapview(plot2020)
-
-# # issues - 35, 43, 49, 61, 81, 85, 93, 95, 99, 141, 155
-# 39035161700x and 39035161800x to 39035197300
-# 39035106300x and 39035106400x to 39035197400
-# 39035103100x and 39035103400x to 39035197500
-# 39035104300x and 39035104200x to 39035197800
-# 39035103900x and 39035104100x to 39035197700
-# 39035104600x and 39035104900x to 39035197600
-# 39035110501x and 39035110801x to 39035197900
-# 39035160700x and 39035160800x to 39035161900
-# 39035115200x and 39035115100x to 39035198100
-# 39035115300x and 39035114900x to 39035198000
-# 39035154300x and 39035154700x to 39035198200
-# 39035188104x and 39035193800x to 39035197000
-# 39035188105x and 39035193900x to 39035198300
-# 39035194900x and 39035194800x to 39035197100
-# 39035114700x and 39035114300x to 39035114800
-# 39035113801x and 39035114100x to 39035198400
-# # Note: a small portion of 39035113101 went to 39035198500
-# 39035113101x and 39035196500x to 39035197200
-# 39035113500x and 39035113600x to 39035198500
-# 39035112400x and 39035112800x to 39035198700
-# 39035112500x and 39035112600x to 39035198800
-# 39035111800x and 39035111902x to 39035199000
-
-# 39035111500x and 39035111600x to 39035198900 # Note: an extra bit was added to 39035198900
-# 39035116100x and 39035116200x to 39035199200
-# 39035118400x and 39035118500x to 39035199100
-# 39035118700x and 39035119100x to 39035196800
-# 39035119202x and 39035119300x to 39035198600
-# 39035151400x and 39035151100x to 39035199300
-# 39035152603x and 39035152604x to 39035152605
-# 39141955601x and 39141955602x to 39141955604
-# 39043040600x and 39043041500x to 39043041900
-# 39049009333x and 39049009331x to 39049009393
-# 39049007203x and 39049007201x to 39049007213
-# 39061007900x and 39061007800x to 39061027700
-# 39061005400x and 39061010800x to 39061027600
-# 39061004701x and 39061004702x to 39061004703
-# 39061004500x and 39061025104x to 39061027500
-# 39081001700x and 39081000800x to 39081012400
-# 39085206000x and 39085205900x to 39085206700
-# 39093023700x and 39093023800x to 39093097500
-# 39093070800x and 39093071000x to 39093097600
-# 39095002200x and 39095002300x to 39095010500
-# 39095003400x and 39095003700x to 39095010600
-# 39099800400x and 39099800300x to 39099814200
-# 39155920600x and 39155920500x to 39155934000
-
 voting_by_district <- full_voting_data %>%
   dplyr::mutate(
     District = factor(district, levels = c(1:16))
@@ -679,6 +515,5 @@ voting_by_district <- full_voting_data %>%
   dplyr::rename(Population = `Population (identified)`) %>%
   dplyr::relocate(Population, .after = District)
 
-write.csv(voting_by_district, "Districts by Partisanship Tracts 2010/compactness_tracts30.csv", row.names = FALSE)
-
+write.csv(voting_by_district, "Tracts 2010 (alg2)/Export Data/Districts by Partisanship/partisanship_tracts20.csv", row.names = FALSE)
 

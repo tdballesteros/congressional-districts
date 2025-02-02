@@ -1033,7 +1033,6 @@ start_time <- Sys.time()
 split1 <- splitIntoTwo(pop_tracts_total, adjacency_list, version = ver)
 end_time <- Sys.time()
 end_time - start_time
-# estimated typical time: 30-35 seconds
 
 # split1 <- splitIntoTwo(pop_tracts_total_v2, adjacency_list_v2, version = ver)
 
@@ -1352,7 +1351,7 @@ pop_final <- pop_tracts_total %>%
 
 # table(pop_final$district, useNA = "always")
 
-write.csv(pop_final, "Tracts 2010 (alg2)/Export Data/District Outputs Tracts 2010/output15.csv", row.names = FALSE)
+write.csv(pop_final, "Tracts 2010 (alg2)/Export Data/District Outputs Tracts 2010/output20.csv", row.names = FALSE)
 
 
 ### Create Map -----------------------------------------------------------------------
