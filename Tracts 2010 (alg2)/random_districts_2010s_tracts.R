@@ -15,7 +15,7 @@ library(tidyverse)
 
 ### load data ----------------------------------------------------------------------
 
-## Adjacency Matrix/List
+## Adjacency List
 # Source: Derived from US Census Bureau and TIGER/Line
 adjacency_list <- read.csv(
   "Data/Calculated_Adjacency_List_Tracts_2010.csv",

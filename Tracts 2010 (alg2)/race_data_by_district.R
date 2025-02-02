@@ -13,18 +13,20 @@ library(tidyverse)
 ### load data ----------------------------------------------------------------------
 ## Population Data
 # Source: US Census Bureau
-tract_data <- read.csv("Data/population_data_2010_by_tract.csv",
-                       skip = 1,
-                       colClasses = "character")
+population_data <- read.csv(
+  "Data/population_data_2010_by_tract.csv",
+  skip = 1,
+  colClasses = "character"
+)
 
 ## Output Data
 # The output CSV file from the random districts tracts 2010 script
-output <- read.csv("Tracts 2010 (alg1)/Export Data/District Outputs Tracts 2010/output30.csv",
+output <- read.csv("Tracts 2010 (alg2)/Export Data/District Outputs Tracts 2010/output15.csv",
                    colClass = "character") %>%
-  dplyr::select(Geography,district)
+  dplyr::select(Geography, district)
 
 ### format data ----------------------------------------------------------------------
-pop_tracts <- tract_data %>%
+pop_tracts <- population_data %>%
   dplyr::filter(
     # Ohio FIPS code is 39
     stringr::str_sub(Geography, 10, 11) == "39",
@@ -33,15 +35,18 @@ pop_tracts <- tract_data %>%
   ) %>%
   tidyr::pivot_longer(3:73, names_to = "Race", values_to = "Population") %>%
   dplyr::select(-X) %>%
-  dplyr::filter(Race %!in% c("Total..Population.of.one.race",
-                             "Total..Two.or.More.Races",
-                             "Total..Two.or.More.Races..Population.of.six.races",
-                             "Total..Two.or.More.Races..Population.of.five.races",
-                             "Total..Two.or.More.Races..Population.of.four.races",
-                             "Total..Two.or.More.Races..Population.of.three.races",
-                             "Total..Two.or.More.Races..Population.of.two.races")) %>%
-  # recode race variable names and consolidate multirace into one category
+  dplyr::filter(Race %!in% c(
+    "Total..Population.of.one.race",
+    "Total..Two.or.More.Races",
+    "Total..Two.or.More.Races..Population.of.six.races",
+    "Total..Two.or.More.Races..Population.of.five.races",
+    "Total..Two.or.More.Races..Population.of.four.races",
+    "Total..Two.or.More.Races..Population.of.three.races",
+    "Total..Two.or.More.Races..Population.of.two.races"
+    )) %>%
   dplyr::mutate(
+    Geography = stringr::str_sub(Geography, 10),
+    # recode race variable names and consolidate multirace into one category
     Race = dplyr::case_when(
       Race == "Total" ~ "Population",
       Race == "Total..Population.of.one.race..American.Indian.and.Alaska.Native.alone" ~ "AIAN",
@@ -55,27 +60,11 @@ pop_tracts <- tract_data %>%
     # several tracts have non-numeric entries in the Population  field; manually correct these
     # and convert all data to numeric values
     Population = dplyr::case_when(
-      Geography == "1400000US39035118800" & Race == "Population" ~ 3081,
-      Geography == "1400000US39035141300" & Race == "Population" ~ 2661,
-      Geography == "1400000US39035187105" & Race == "Population" ~ 2176,
-      Geography == "1400000US39035187106" & Race == "Population" ~ 5198,
-      Geography == "1400000US39035195900" & Race == "Population" ~ 4233,
-      Geography == "1400000US39055310200" & Race == "Population" ~ 1991,
-      Geography == "1400000US39055310600" & Race == "Population" ~ 6148,
-      Geography == "1400000US39055310800" & Race == "Population" ~ 6621,
-      Geography == "1400000US39055310900" & Race == "Population" ~ 3200,
-      Geography == "1400000US39055311000" & Race == "Population" ~ 3637,
-      Geography == "1400000US39055311300" & Race == "Population" ~ 4412,
-      Geography == "1400000US39055311400" & Race == "Population" ~ 5537,
-      Geography == "1400000US39055311600" & Race == "Population" ~ 3810,
-      Geography == "1400000US39055311700" & Race == "Population" ~ 4089,
-      Geography == "1400000US39055311800" & Race == "Population" ~ 7306,
-      Geography == "1400000US39055312100" & Race == "Population" ~ 4131,
-      Geography == "1400000US39055312202" & Race == "Population" ~ 4323,
-      Geography == "1400000US39055312300" & Race == "Population" ~ 4643,
-      Geography == "1400000US39055312400" & Race == "Population" ~ 2544,
-      Geography == "1400000US39085206400" & Race == "Population" ~ 4701,
-      Geography == "1400000US39155930500" & Race == "Population" ~ 6115,
+      Geography %in% c("39035118800", "39035141300", "39035187105", "39035187106", "39035195900", "39055310200",
+                       "39055310600", "39055310800", "39055310900", "39055311000", "39055311300", "39055311400",
+                       "39055311600", "39055311700", "39055311800", "39055312100", "39055312202", "39055312300",
+                       "39055312400", "39085206400", "39155930500") &
+        Race == "Population" ~ as.numeric(stringr::str_sub(Population, 1, 4)),
       .default = as.numeric(Population)
     )) %>%
   # sum Population over Geography & Race
@@ -86,8 +75,7 @@ pop_tracts <- tract_data %>%
   dplyr::ungroup() %>%
   dplyr::mutate(
     fips_county = stringr::str_sub(Geography, 12, 14),
-    fips_tract = stringr::str_sub(Geography, 15, 20),
-    Geography = stringr::str_sub(Geography, 10)
+    fips_tract = stringr::str_sub(Geography, 15, 20)
   ) %>%
   tidyr::pivot_wider(names_from = Race, values_from = Population) %>%
   # reorder columns
@@ -156,4 +144,7 @@ districts_race_data <- dplyr::full_join(output, pop_tracts, by = "Geography") %>
       .default = NA
   ))
 
-write.csv(districts_race_data, "Tracts 2010 (alg1)/Export Data/Districts by Race Tracts 2010/race_tracts30.csv", row.names = FALSE)
+write.csv(districts_race_data,
+          "Tracts 2010 (alg2)/Export Data/Districts by Race/race_tracts15.csv",
+          row.names = FALSE
+          )
