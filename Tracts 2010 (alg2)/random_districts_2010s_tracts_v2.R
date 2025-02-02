@@ -389,19 +389,6 @@ identifyEnclaves <- function(tract_list, adjdf = adjacency_list){
 }
 
 
-
-
-
-
-
-
-
-
-# split1 <- splitIntoTwo(pop_tracts_total, adjacency_list, version = ver)
-df <- pop_tracts_total
-adjdf <- adjacency_list
-version <- 1
-
 splitIntoTwo <- function(df = pop_tracts_total, adjdf = adjacency_list, version = 1){
   
   # STEPS
@@ -410,6 +397,9 @@ splitIntoTwo <- function(df = pop_tracts_total, adjdf = adjacency_list, version 
   ## Step 2: Starting Tract Groupings
   ## Step 3: Expand Halves
   ## Step 4: Assign Unassigned Tracts
+  ## Step 5: Reassignments
+  ## Step 6: Add Enclave Data
+  ## Step 7: Finalize Data
   
 
   ##### STEP 0: PRE-PROCESSING
@@ -802,13 +792,10 @@ splitIntoTwo <- function(df = pop_tracts_total, adjdf = adjacency_list, version 
   # pull list of enclaves
   enclave_list_half_a <- identifyEnclaves(half1_tract_list, adj_half_a)
   enclave_list_half_b <- identifyEnclaves(half2_tract_list, adj_half_b)
-  
-  # pull a modified minimum population target for each half
-  pop_goal <- 0.995 * sum_goal
-  
+
   # while enclaves remain and population targets are not met
   while(length(enclave_list_half_a) > 0 | length(enclave_list_half_b) > 0 |
-        (half1_population < pop_goal) | (half2_population < pop_goal)){
+        (half1_population < sum_goal) | (half2_population < sum_goal)){
     
     # recode enclaves to the other half
     tdf <- tdf %>%
@@ -839,10 +826,10 @@ splitIntoTwo <- function(df = pop_tracts_total, adjdf = adjacency_list, version 
       dplyr::pull(Geography)
     
     # reassign districts assigned to half 2 to half 1 so long as half 1's population is below the target
-    while(half1_population < pop_goal){
+    while(half1_population < sum_goal){
       
       # calculate the population needed to reach the population goal for half 1
-      pop_differential_half1 <- pop_goal - half1_population
+      pop_differential_half1 <- sum_goal - half1_population
       
       # calculate proportion of adjacent tracts in each half
       adding_to_half1 <- tdf %>%
@@ -915,10 +902,10 @@ splitIntoTwo <- function(df = pop_tracts_total, adjdf = adjacency_list, version 
       sum()
     
     # reassign districts assigned to half 1 to half 2 so long as half 2's population is below the target
-    while(half2_population < pop_goal){
+    while(half2_population < sum_goal){
       
       # calculate the population needed to reach the population goal for half 2
-      pop_differential_half2 <- pop_goal - half2_population
+      pop_differential_half2 <- sum_goal - half2_population
       
       # calculate proportion of adjacent tracts in each half
       adding_to_half2 <- tdf %>%
@@ -1026,7 +1013,7 @@ splitIntoTwo <- function(df = pop_tracts_total, adjdf = adjacency_list, version 
     
   }
   
-  ##### STEP 8: ADD ENCLAVE DATA
+  ##### STEP 6: ADD ENCLAVE DATA
   ##### Split the enclaves out from their surrounding tract.
   
   # pull tracts for tracts surrounding enclaves, to split back into the
@@ -1057,7 +1044,7 @@ splitIntoTwo <- function(df = pop_tracts_total, adjdf = adjacency_list, version 
     rbind(tdf_enclave_to_add, tdf_surrounding_to_add) %>%
     as.data.frame()
   
-  ##### STEP 9: FINALIZE DATA
+  ##### STEP 7: FINALIZE DATA
   ##### Pull the final data outputs and test each half for continuity.
   
   # pull data for Side A
@@ -1105,665 +1092,6 @@ splitIntoTwo <- function(df = pop_tracts_total, adjdf = adjacency_list, version 
   }
   
 }
-
-##### fx old #####
-# splitIntoTwo <- function(df = pop_tracts_total, adjdf = adjacency_list, version = 1){
-#   
-#   ##### Step 0: Pre-Processing
-#   ##### Test for contiguity, remove enclaves and recalculate populations, and reconfirm contiguity.
-#   
-#   # test if the input df is contiguous
-#   if(isContig(df$Geography, adjdf) == 0){
-#     
-#     stop(paste("Error: Input Not Contiguous"))
-#     
-#   }
-#   
-#   # pull master enclave list based on version (including or excluding several water tracts)
-#   if(version == 1){
-#     master_enclave_data <- tract_enclave_df
-#   } else if(version == 2){
-#     master_enclave_data <- tract_enclave_df_v2
-#   }
-#   
-#   master_enclave_list <- master_enclave_data$ENCLAVE_TRACTID
-#   master_surrounding_list <- master_enclave_data$SURROUNDING_TRACTID
-#   
-#   # pull enclaves within the inputted data
-#   enclaves_list <- df$Geography[df$Geography %in% master_enclave_list]
-#   
-#   # pull surrounding tracts within the inputted data
-#   surrounding_list <- df$Geography[df$Geography %in% master_surrounding_list]
-#   
-#   # create a modified population df merging the enclaves and their populations into
-#   # their respective surrounding districts in order to ensure they are assigned together
-#   df_mod <- df %>%
-#     dplyr::left_join(master_enclave_data,
-#                      dplyr::join_by("Geography" == "ENCLAVE_TRACTID")) %>%
-#     dplyr::mutate(Geography = dplyr::coalesce(SURROUNDING_TRACTID, Geography)) %>%
-#     dplyr::group_by(Geography) %>%
-#     dplyr::summarise(Population = sum(Population, na.rm = TRUE)) %>%
-#     dplyr::ungroup()
-#   
-#   # modify adjacency list to remove all enclaves
-#   adjdf_mod <- adjdf %>%
-#     dplyr::filter(
-#       SOURCE_TRACTID %!in% enclaves_list,
-#       NEIGHBOR_TRACTID %!in% enclaves_list
-#     )
-#   
-#   # test if the modified data is contiguous
-#   if(isContig(df_mod$Geography, adjdf_mod) == 0){
-#     
-#     stop(paste("Error: Input Not Contiguous"))
-#     
-#   }
-#   
-#   ##### STEP 1: INITIAL RANDOM TRACTS
-#   ##### Select two random tracts, calculate distances from each of those two tracts by the minimum number of
-#   ##### tracts between them, and calculate the difference of those distances to measure how relatively closer
-#   ##### each tract is from the two initial random tracts.
-#   
-#   # list all unassigned districts in the population
-#   tract_list <- unique(df_mod$Geography)
-#   
-#   # select random tract from population
-#   tract1 <- sample(tract_list, 1)
-#   
-#   # exclude tract1 from the sample
-#   tract_list <- tract_list[!tract_list %in% tract1]
-#   
-#   # select second random tract from the new population
-#   tract2 <- sample(tract_list,1)
-#   
-#   # calculate distances to tract1
-#   t1_df <- tractdist(as.character(tract1), adjdf_mod, df_mod) %>%
-#     dplyr::rename(dist1 = dist)
-#   # calculate distances to tract2
-#   t2_df <- tractdist(tract2, adjdf_mod, df_mod) %>%
-#     dplyr::rename(dist2 = dist)
-#   
-#   # join the two distance columns together
-#   tdf <- dplyr::full_join(t1_df, t2_df,
-#                           by = c("Geography")) %>%
-#     # calculate differences of distances
-#     ## positive - tract2 is closer
-#     ## negative - tract1 is closer
-#     dplyr::mutate(
-#       distfrom = dist2 - dist1,
-#       Geography = as.character(Geography)
-#     )
-#   
-#   # merge in tract population estimates
-#   tdf <- dplyr::left_join(tdf, df_mod, by=c("Geography")) %>%
-#     dplyr::mutate(Population = as.numeric(Population))
-#   
-#   ##### STEP 2: STARTING TRACT GROUPINGS
-#   ##### Identify tracts with the most extreme difference of distances (i.e., the most relatively far from each
-#   ##### initial random tract), select the largest group of contiguous tracts within each group, and set those
-#   ##### two groups as the starting points for each half.
-#   
-#   # pull the most extreme distfrom values and pull the tracts in the largest contiguous group
-#   # or pick one at random if all are disconnected
-#   distfrom_low <- min(tdf$distfrom, na.rm = TRUE)
-#   distfrom_high <- max(tdf$distfrom, na.rm = TRUE)
-#   
-#   # starting point Half 1
-#   start_half1 <- tdf %>%
-#     dplyr::filter(distfrom == distfrom_low)
-#   
-#   start_half1 <- identifyGroups(start_half1$Geography, adjdf_mod)
-#   
-#   # identify the group with the largest number of tracts in it, or the first group with the max
-#   # length in the case of ties
-#   largest_grouping_index_half1 <- which.max(sapply(start_half1, length))
-#   starting_half1_list <- start_half1[[largest_grouping_index_half1]]
-#   
-#   # starting point Half 2
-#   start_half2 <- tdf %>%
-#     dplyr::filter(distfrom == distfrom_high)
-#   
-#   start_half2 <- identifyGroups(start_half2$Geography, adjdf_mod)
-#   
-#   # identify the group with the largest number of tracts in it, or the first group with the max
-#   # length in the case of ties
-#   largest_grouping_index_half2 <- which.max(sapply(start_half2, length))
-#   starting_half2_list <- start_half2[[largest_grouping_index_half2]]
-#   
-#   # set list of tracts assigned to each half to the starting lists
-#   half1_tract_list <- c(starting_half1_list)
-#   half2_tract_list <- c(starting_half2_list)
-#   
-#   # set list of assigned and unassigned tracts
-#   assigned_tract_list <- c(half1_tract_list, half2_tract_list)
-#   unassigned_tract_list <- tdf %>%
-#     dplyr::filter(Geography %!in% c(half1_tract_list, half2_tract_list)) %>%
-#     dplyr::pull(Geography)
-#   
-#   # set cumulative population sums of assigned tracts to the starting value populations
-#   half1_population <- tdf %>%
-#     dplyr::filter(Geography %in% half1_tract_list) %>%
-#     dplyr::pull(Population) %>%
-#     sum()
-#   
-#   half2_population <- tdf %>%
-#     dplyr::filter(Geography %in% half2_tract_list) %>%
-#     dplyr::pull(Population) %>%
-#     sum()
-#   
-#   ##### STEP 3: EXPAND HALVES
-#   ##### Continue to add adjacent districts to each half until one of the halves reaches the
-#   ##### population target goal
-#   
-#   # calculate the sum goal
-#   sum_goal <- (sum(tdf$Population, na.rm = TRUE) / 2) - median(tdf$Population, na.rm = TRUE)
-#   
-#   # set distfrom counters starting at their lowest/highest values
-#   distfrom_lower_counter <- distfrom_low + 1
-#   distfrom_higher_counter <- distfrom_high - 1
-#   
-#   while((half1_population < sum_goal) & (half2_population < sum_goal)){
-#     
-#     # subset adjacency lists
-#     adjdf_half1 <- adjdf_mod %>%
-#       dplyr::filter(
-#         SOURCE_TRACTID %in% half1_tract_list,
-#         NEIGHBOR_TRACTID %!in% half1_tract_list
-#       )
-#     
-#     adjdf_half2 <- adjdf_mod %>%
-#       dplyr::filter(
-#         SOURCE_TRACTID %in% half2_tract_list,
-#         NEIGHBOR_TRACTID %!in% half2_tract_list
-#       )
-#     
-#     # pull eligible tracts to add
-#     tmp_half1 <- tdf %>%
-#       dplyr::rowwise() %>%
-#       # create binary adjacency flags
-#       dplyr::mutate(
-#         half1_adj = dplyr::case_when(
-#           Geography %in% adjdf_half1$NEIGHBOR_TRACTID ~ 1,
-#           .default = 0
-#         )
-#       ) %>%
-#       dplyr::filter(
-#         Geography %!in% assigned_tract_list,
-#         half1_adj == 1,
-#         distfrom <= distfrom_lower_counter
-#       ) %>%
-#       dplyr::arrange(desc(dist1),dist2)
-#     
-#     tmp_half2 <- tdf %>%
-#       dplyr::rowwise() %>%
-#       # create binary adjacency flags
-#       dplyr::mutate(
-#         half2_adj = dplyr::case_when(
-#           Geography %in% adjdf_half2$NEIGHBOR_TRACTID ~ 1,
-#           .default = 0
-#         )
-#       ) %>%
-#       dplyr::filter(
-#         Geography %!in% assigned_tract_list,
-#         half2_adj == 1,
-#         distfrom >= distfrom_higher_counter
-#       )
-#     
-#     # calculate population
-#     half1_population_tmp <- half1_population + sum(tmp_half1$Population, na.rm = TRUE)
-#     half2_population_tmp <- half2_population + sum(tmp_half2$Population, na.rm = TRUE)
-#     
-#     # if the population puts it over the target, only pull part of the list
-#     if(half1_population_tmp >= sum_goal){
-#       
-#       pop_difference <- sum_goal - half1_population
-#       
-#       tmp_half1 <- tmp_half1 %>%
-#         dplyr::group_by() %>%
-#         dplyr::mutate(cumsum = cumsum(Population)) %>%
-#         dplyr::ungroup()
-#       
-#       index_half1 <- dplyr::case_when(
-#         tmp_half1$cumsum[1] >= pop_difference ~ 1,
-#         tmp_half1$cumsum[1] < pop_difference ~ max(which(tmp_half1$cumsum < pop_difference)) + 1,
-#         .default = 1
-#       )
-#       
-#       half1_add_list <- tmp_half1 %>%
-#         dplyr::filter(row_number() <= index_half1) %>%
-#         dplyr::pull(Geography)
-#       
-#     } else{
-#       
-#       half1_add_list <- tmp_half1 %>%
-#         dplyr::pull(Geography)
-#       
-#     }
-#     
-#     if(half2_population_tmp >= sum_goal){
-#       
-#       pop_difference <- sum_goal - half2_population
-#       
-#       tmp_half2 <- tmp_half2 %>%
-#         dplyr::group_by() %>%
-#         dplyr::mutate(cumsum = cumsum(Population)) %>%
-#         dplyr::ungroup()
-#       
-#       index_half2 <- dplyr::case_when(
-#         tmp_half2$cumsum[1] >= pop_difference ~ 1,
-#         tmp_half2$cumsum[1] < pop_difference ~ max(which(tmp_half2$cumsum < pop_difference)) + 1,
-#         .default = 1
-#       )      
-#       
-#       half2_add_list <- tmp_half2 %>%
-#         dplyr::filter(row_number() <= index_half2) %>%
-#         dplyr::pull(Geography)
-#       
-#     } else{
-#       
-#       half2_add_list <- tmp_half2 %>%
-#         dplyr::pull(Geography)
-#       
-#     }
-#     
-#     # if the tract is in both lists
-#     tracts_to_add_in_both <- base::intersect(half1_add_list, half2_add_list)
-#     
-#     if(length(tracts_to_add_in_both) > 0){
-#       tracts_in_both_df <- data.frame(Geography = tracts_to_add_in_both) %>%
-#         dplyr::rowwise() %>%
-#         dplyr::mutate(
-#           half1_adj = adjdf_mod %>%
-#             dplyr::filter(
-#               SOURCE_TRACTID == Geography,
-#               NEIGHBOR_TRACTID %in% half1_tract_list
-#             ) %>%
-#             nrow(),
-#           half2_adj = adjdf_mod %>%
-#             dplyr::filter(
-#               SOURCE_TRACTID == Geography,
-#               NEIGHBOR_TRACTID %in% half2_tract_list
-#             ) %>%
-#             nrow(),
-#           total_adj = half1_adj + half2_adj,
-#           half1_adj_perc = half1_adj / total_adj,
-#           half2_adj_perc = half2_adj / total_adj,
-#           half_assigned = dplyr::case_when(
-#             half1_adj_perc > half2_adj_perc ~ 1,
-#             half2_adj_perc > half1_adj_perc ~ 2,
-#             .default = NA
-#           )
-#         )
-#       
-#       # remove all tracts in both lists from each list
-#       half1_add_list <- half1_add_list[half1_add_list %!in% tracts_to_add_in_both]
-#       half2_add_list <- half2_add_list[half2_add_list %!in% tracts_to_add_in_both]
-#       
-#       # pull new assignments for tracts in both lists
-#       half1_add_list_plus <- tracts_in_both_df %>%
-#         dplyr::filter(half_assigned == 1) %>%
-#         dplyr::pull(Geography)
-#       
-#       half2_add_list_plus <- tracts_in_both_df %>%
-#         dplyr::filter(half_assigned == 2) %>%
-#         dplyr::pull(Geography)
-#       
-#       # add new assignments to list of additions
-#       half1_add_list <- c(half1_add_list, half1_add_list_plus)
-#       half2_add_list <- c(half2_add_list, half2_add_list_plus)
-#       
-#     }
-#     
-#     # calculate population
-#     add_half1_population <- tdf %>%
-#       dplyr::filter(Geography %in% half1_add_list) %>%
-#       dplyr::pull(Population) %>%
-#       sum()
-#     
-#     add_half2_population <- tdf %>%
-#       dplyr::filter(Geography %in% half2_add_list) %>%
-#       dplyr::pull(Population) %>%
-#       sum()
-#     
-#     half1_population <- half1_population + add_half1_population
-#     half2_population <- half2_population + add_half2_population
-#     
-#     # combine tracts to add with list
-#     half1_tract_list <- c(half1_tract_list, half1_add_list)
-#     half2_tract_list <- c(half2_tract_list, half2_add_list)
-#     assigned_tract_list <- c(assigned_tract_list, half1_add_list, half2_add_list)
-#     unassigned_tract_list <- unassigned_tract_list[unassigned_tract_list %!in% assigned_tract_list]
-#     
-#     distfrom_lower_counter <- distfrom_lower_counter + 1
-#     distfrom_higher_counter <- distfrom_higher_counter - 1
-#     
-#   }
-#   
-#   ##### STEP 4: ASSIGN UNASSIGNED TRACTS
-#   ##### Assign unassigned tracts from the previous step to whichever half did not reach the population goal.
-#   
-#   # assign unassigned tracts to the half with the population below the threshold
-#   if(half1_population < sum_goal){
-#     
-#     half1_tract_list <- c(half1_tract_list, unassigned_tract_list)
-#     
-#   } else if(half2_population < sum_goal){
-#     
-#     half2_tract_list <- c(half2_tract_list, unassigned_tract_list)
-#     
-#   }
-#   
-#   tdf <- tdf %>%
-#     dplyr::mutate(half = dplyr::case_when(
-#       Geography %in% half1_tract_list ~ 1,
-#       Geography %in% half2_tract_list ~ 2,
-#       .default = NA
-#     ))
-#   
-#   ##### STEP 5: REASSIGN ENCLAVES
-#   ##### Identify tracts in enclaves and reassign them to the other half.
-#   
-#   # pull enclave tracts
-#   adj_half_a <- adjdf_mod %>%
-#     dplyr::filter(
-#       SOURCE_TRACTID %in% half1_tract_list,
-#       NEIGHBOR_TRACTID %in% half1_tract_list
-#     )
-#   
-#   adj_half_b <- adjdf_mod %>%
-#     dplyr::filter(
-#       SOURCE_TRACTID %in% half2_tract_list,
-#       NEIGHBOR_TRACTID %in% half2_tract_list
-#     )
-#   
-#   enclave_list_half_a <- identifyEnclaves(half1_tract_list, adj_half_a)
-#   enclave_list_half_b <- identifyEnclaves(half2_tract_list, adj_half_b)
-#   
-#   # recode enclaves into other half
-#   tdf <- tdf %>%
-#     dplyr::mutate(half = dplyr::case_when(
-#       Geography %in% enclave_list_half_a ~ 2,
-#       Geography %in% enclave_list_half_b ~ 1,
-#       .default = half
-#     ))
-#   
-#   ##### STEP 6: REASSIGN TO MEET POPULATION PARAMETERS
-#   ##### Identify tracts bordering the other half and shift them until each half
-#   ##### is within the population target goals.
-#   
-#   # repull list of tracts in each half
-#   half1_tract_list <- tdf %>%
-#     dplyr::filter(half == 1) %>%
-#     dplyr::pull(Geography)
-#   
-#   half2_tract_list <- tdf %>%
-#     dplyr::filter(half == 2) %>%
-#     dplyr::pull(Geography)
-#   
-#   # repull population of each half
-#   half1_population <- tdf %>%
-#     dplyr::filter(half == 1) %>%
-#     dplyr::pull(Population) %>%
-#     sum()
-#   
-#   half2_population <- tdf %>%
-#     dplyr::filter(half == 2) %>%
-#     dplyr::pull(Population) %>%
-#     sum()
-#   
-#   # shift tracts with largest proportion of neighboring tracts in other half to approach
-#   # the population goal
-#   pop_goal <- 0.995 * sum_goal
-#   
-#   while(half1_population < pop_goal){
-#     
-#     pop_differential_half1 <- pop_goal - half1_population
-#     
-#     # calculate proportion of adjacent tracts in each half
-#     adding_to_half1 <- tdf %>%
-#       dplyr::rowwise() %>%
-#       dplyr::mutate(
-#         half1_adj = adjdf_mod %>%
-#           dplyr::filter(
-#             SOURCE_TRACTID == Geography,
-#             NEIGHBOR_TRACTID %in% half1_tract_list
-#           ) %>%
-#           nrow(),
-#         half2_adj = adjdf_mod %>%
-#           dplyr::filter(
-#             SOURCE_TRACTID == Geography,
-#             NEIGHBOR_TRACTID %in% half2_tract_list
-#           ) %>%
-#           nrow(),
-#         total_adj = half1_adj + half2_adj,
-#         half1_adj_perc = half1_adj / total_adj,
-#         half2_adj_perc = half2_adj / total_adj
-#       ) %>%
-#       dplyr::filter(
-#         half == 2,
-#         half1_adj > 0
-#       ) %>%
-#       dplyr::arrange(desc(half1_adj_perc), distfrom, desc(dist1), dist2) %>%
-#       dplyr::group_by() %>%
-#       dplyr::mutate(cumsum = cumsum(Population)) %>%
-#       dplyr::ungroup()
-#     
-#     cutoff <- dplyr::case_when(
-#       adding_to_half1$cumsum[1] >= pop_differential_half1 ~ 1,
-#       adding_to_half1$cumsum[1] < pop_differential_half1 ~ max(which(adding_to_half1$cumsum < pop_differential_half1)) + 1,
-#       .default = 1
-#     )
-#     
-#     adding_to_half1 <- adding_to_half1 %>%
-#       dplyr::filter(row_number() <= cutoff)
-#     
-#     tdf <- tdf %>%
-#       dplyr::mutate(half = dplyr::case_when(
-#         Geography %in% adding_to_half1$Geography ~ 1,
-#         .default = half
-#       ))
-#     
-#     # pull updated population
-#     half1_population <- tdf %>%
-#       dplyr::filter(half == 1) %>%
-#       dplyr::pull(Population) %>%
-#       sum()
-#     
-#     # repull tract lists
-#     half1_tract_list <- tdf %>%
-#       dplyr::filter(half == 1) %>%
-#       dplyr::pull(Geography)
-#     
-#     half2_tract_list <- tdf %>%
-#       dplyr::filter(half == 2) %>%
-#       dplyr::pull(Geography)
-#   }
-#   
-#   # pull updated population
-#   half2_population <- tdf %>%
-#     dplyr::filter(half == 2) %>%
-#     dplyr::pull(Population) %>%
-#     sum()
-#   
-#   while(half2_population < pop_goal){
-#     
-#     pop_differential_half2 <- pop_goal - half2_population
-#     
-#     # calculate proportion of adjacent tracts in each half
-#     adding_to_half2 <- tdf %>%
-#       dplyr::rowwise() %>%
-#       dplyr::mutate(
-#         half1_adj = adjdf_mod %>%
-#           dplyr::filter(
-#             SOURCE_TRACTID == Geography,
-#             NEIGHBOR_TRACTID %in% half1_tract_list
-#           ) %>%
-#           nrow(),
-#         half2_adj = adjdf_mod %>%
-#           dplyr::filter(
-#             SOURCE_TRACTID == Geography,
-#             NEIGHBOR_TRACTID %in% half2_tract_list
-#           ) %>%
-#           nrow(),
-#         total_adj = half1_adj + half2_adj,
-#         half1_adj_perc = half1_adj / total_adj,
-#         half2_adj_perc = half2_adj / total_adj
-#       ) %>%
-#       dplyr::filter(
-#         half == 1,
-#         half2_adj > 0
-#       ) %>%
-#       dplyr::arrange(desc(half2_adj_perc), distfrom, desc(dist2), dist1) %>%
-#       dplyr::group_by() %>%
-#       dplyr::mutate(cumsum = cumsum(Population)) %>%
-#       dplyr::ungroup()
-#     
-#     cutoff <- dplyr::case_when(
-#       adding_to_half2$cumsum[1] >= pop_differential_half2 ~ 1,
-#       adding_to_half2$cumsum[1] < pop_differential_half2 ~ max(which(adding_to_half2$cumsum < pop_differential_half2)) + 1,
-#       .default = 1
-#     )
-#     
-#     adding_to_half2 <- adding_to_half2 %>%
-#       dplyr::filter(row_number() <= cutoff)
-#     
-#     tdf <- tdf %>%
-#       dplyr::mutate(half = dplyr::case_when(
-#         Geography %in% adding_to_half2$Geography ~ 2,
-#         .default = half
-#       ))
-#     
-#     # pull updated population
-#     half2_population <- tdf %>%
-#       dplyr::filter(half == 2) %>%
-#       dplyr::pull(Population) %>%
-#       sum()
-#     
-#     # repull tract lists
-#     half1_tract_list <- tdf %>%
-#       dplyr::filter(half == 1) %>%
-#       dplyr::pull(Geography)
-#     
-#     half2_tract_list <- tdf %>%
-#       dplyr::filter(half == 2) %>%
-#       dplyr::pull(Geography)
-#     
-#   }
-#   
-#   ##### STEP 7: FINAL ENCLAVE REASSIGNMENT
-#   ##### Identify any new enclaves and flip them to the other half.
-#   
-#   # pull tract lists
-#   half1_tract_list <- tdf %>%
-#     dplyr::filter(half == 1) %>%
-#     dplyr::pull(Geography)
-#   
-#   half2_tract_list <- tdf %>%
-#     dplyr::filter(half == 2) %>%
-#     dplyr::pull(Geography)
-#   
-#   # pull enclave tracts
-#   adj_half_a <- adjdf_mod %>%
-#     dplyr::filter(
-#       SOURCE_TRACTID %in% half1_tract_list,
-#       NEIGHBOR_TRACTID %in% half1_tract_list
-#     )
-#   
-#   adj_half_b <- adjdf_mod %>%
-#     dplyr::filter(
-#       SOURCE_TRACTID %in% half2_tract_list,
-#       NEIGHBOR_TRACTID %in% half2_tract_list
-#     )
-#   
-#   enclave_list_half_a <- identifyEnclaves(half1_tract_list, adj_half_a)
-#   enclave_list_half_b <- identifyEnclaves(half2_tract_list, adj_half_b)
-#   
-#   tdf <- tdf %>%
-#     dplyr::mutate(half = dplyr::case_when(
-#       Geography %in% enclave_list_half_a ~ 2,
-#       Geography %in% enclave_list_half_b ~ 1,
-#       .default = half
-#     ))
-#   
-#   ##### STEP 8: ADD ENCLAVE DATA
-#   ##### Split the enclaves out from their surrounding tract.
-#   
-#   # pull tracts for tracts surrounding enclaves, to split back into the
-#   # surrounding tract and its enclave(s)
-#   tdf_surrounding_to_add <- tdf %>%
-#     dplyr::filter(Geography %in% surrounding_list) %>%
-#     dplyr::rename(Geography_combined = Geography) %>%
-#     dplyr::select(-Population) %>%
-#     dplyr::left_join(df,
-#                      dplyr::join_by("Geography_combined" == "Geography")) %>%
-#     dplyr::rename(Geography = Geography_combined)
-#   
-#   # pull population data for enclaves and assign the enclaves the districts
-#   # of their respective surrounding tracts
-#   tdf_enclave_to_add <- df %>%
-#     dplyr::filter(Geography %in% enclaves_list) %>%
-#     dplyr::left_join(master_enclave_data,
-#                      dplyr::join_by("Geography" == "ENCLAVE_TRACTID")) %>%
-#     dplyr::left_join(tdf_surrounding_to_add %>%
-#                        dplyr::select(-Population),
-#                      dplyr::join_by("SURROUNDING_TRACTID" == "Geography")) %>%
-#     dplyr::select(-SURROUNDING_TRACTID)
-#   
-#   # remove combined districts and append with the separated enclave and
-#   # surrounding district data
-#   tdf <- tdf %>%
-#     dplyr::filter(Geography %!in% c(enclaves_list, surrounding_list)) %>%
-#     rbind(tdf_enclave_to_add, tdf_surrounding_to_add) %>%
-#     as.data.frame()
-#   
-#   ##### STEP 9: FINALIZE DATA
-#   ##### Pull the final data outputs and test each half for continuity.
-#   
-#   # pull data for Side A
-#   half1_list <- tdf %>%
-#     dplyr::filter(half == 1) %>%
-#     dplyr::pull(Geography) %>%
-#     unique()
-#   
-#   # pull data for Side B
-#   half2_list <- tdf %>%
-#     dplyr::filter(half == 2) %>%
-#     dplyr::pull(Geography) %>%
-#     unique()
-#   
-#   # create new population sets for Side A...
-#   pop_half1 <- df %>%
-#     dplyr::filter(Geography %in% half1_list)
-#   # ...and Side B
-#   pop_half2 <- df %>%
-#     dplyr::filter(Geography %in% half2_list)
-#   
-#   # create new adjacency matrices for Side A...
-#   adj_half1 <- adjdf %>%
-#     dplyr::filter(SOURCE_TRACTID %in% half1_list,
-#                   NEIGHBOR_TRACTID %in% half1_list
-#     )
-#   # ...and Side B
-#   adj_half2 <- adjdf %>%
-#     dplyr::filter(SOURCE_TRACTID %in% half2_list,
-#                   NEIGHBOR_TRACTID %in% half2_list
-#     )
-#   
-#   # test if Side A and Side B are both contiguous
-#   sideA_contig <- isContig(half1_list,adj_half1)
-#   sideB_contig <- isContig(half2_list,adj_half2)
-#   
-#   output <- list(pop_half1, pop_half2, adj_half1, adj_half2)
-#   
-#   if(sideA_contig == 1 & sideB_contig == 1){
-#     return(output)
-#   }
-#   if(sideA_contig == 0 | sideB_contig == 0){
-#     warning(paste("Error: Function produced a non-contiguous district."))
-#     return(output)
-#   }
-#   
-# }
 
 
 ### Split 1: Two Parts ----------------------------------------------------------------------
@@ -2047,6 +1375,23 @@ sum(pop_sixteenth14$Population, na.rm = TRUE)
 sum(pop_sixteenth15$Population, na.rm = TRUE)
 sum(pop_sixteenth16$Population, na.rm = TRUE)
 
+min(sum(pop_sixteenth1$Population, na.rm = TRUE),
+  sum(pop_sixteenth2$Population, na.rm = TRUE),
+  sum(pop_sixteenth3$Population, na.rm = TRUE),
+  sum(pop_sixteenth4$Population, na.rm = TRUE),
+  sum(pop_sixteenth5$Population, na.rm = TRUE),
+  sum(pop_sixteenth6$Population, na.rm = TRUE),
+  sum(pop_sixteenth7$Population, na.rm = TRUE),
+  sum(pop_sixteenth8$Population, na.rm = TRUE),
+  sum(pop_sixteenth9$Population, na.rm = TRUE),
+  sum(pop_sixteenth10$Population, na.rm = TRUE),
+  sum(pop_sixteenth11$Population, na.rm = TRUE),
+  sum(pop_sixteenth12$Population, na.rm = TRUE),
+  sum(pop_sixteenth13$Population, na.rm = TRUE),
+  sum(pop_sixteenth14$Population, na.rm = TRUE),
+  sum(pop_sixteenth15$Population, na.rm = TRUE),
+  sum(pop_sixteenth16$Population, na.rm = TRUE)) /
+  (sum(pop_tracts_total$Population, na.rm = TRUE) / 16)
 
 ### Create Final Dataset ----------------------------------------------------------------------
 
@@ -2075,7 +1420,7 @@ pop_final <- pop_tracts_total %>%
 
 # table(pop_final$district, useNA = "always")
 
-write.csv(pop_final, "Tracts 2010 (alg2)/Export Data/District Outputs Tracts 2010/output01.csv", row.names = FALSE)
+write.csv(pop_final, "Tracts 2010 (alg2)/Export Data/District Outputs Tracts 2010/output02.csv", row.names = FALSE)
 
 
 ### Create Map -----------------------------------------------------------------------
