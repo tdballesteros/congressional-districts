@@ -31,7 +31,7 @@ voting_data <- read.csv(
 ## Output Data
 # The output CSV file from the raceData script
 output <- read.csv(
-  "Tracts 2010 (alg2)/Export Data/District Outputs Tracts 2010/output20.csv",
+  "Tracts 2010 (alg2)/Export Data/District Outputs Tracts 2010/output30.csv",
   colClass = "character"
   ) %>%
   dplyr::select(Geography, district)
@@ -515,5 +515,5 @@ voting_by_district <- full_voting_data %>%
   dplyr::rename(Population = `Population (identified)`) %>%
   dplyr::relocate(Population, .after = District)
 
-write.csv(voting_by_district, "Tracts 2010 (alg2)/Export Data/Districts by Partisanship/partisanship_tracts20.csv", row.names = FALSE)
+write.csv(voting_by_district, "Tracts 2010 (alg2)/Export Data/Districts by Partisanship/partisanship_tracts30.csv", row.names = FALSE)
 

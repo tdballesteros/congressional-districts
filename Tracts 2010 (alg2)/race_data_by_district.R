@@ -21,7 +21,7 @@ population_data <- read.csv(
 
 ## Output Data
 # The output CSV file from the random districts tracts 2010 script
-output <- read.csv("Tracts 2010 (alg2)/Export Data/District Outputs Tracts 2010/output20.csv",
+output <- read.csv("Tracts 2010 (alg2)/Export Data/District Outputs Tracts 2010/output30.csv",
                    colClass = "character") %>%
   dplyr::select(Geography, district)
 
@@ -145,6 +145,6 @@ districts_race_data <- dplyr::full_join(output, pop_tracts, by = "Geography") %>
   ))
 
 write.csv(districts_race_data,
-          "Tracts 2010 (alg2)/Export Data/Districts by Race/race_tracts20.csv",
+          "Tracts 2010 (alg2)/Export Data/Districts by Race/race_tracts30.csv",
           row.names = FALSE
           )
