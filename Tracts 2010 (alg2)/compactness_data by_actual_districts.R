@@ -52,10 +52,10 @@ ohio_113th_shapefile <- ohio_113th_shapefile %>%
   dplyr::filter(STATEFP == 39) %>%
   dplyr::select(CDSESSN, NAMELSAD, geometry)
 
-ohio_congressional_shapefiles <- rbind(ohio_108th_shapefile,
-                                       ohio_111th_shapefile,
-                                       ohio_112th_shapefile,
-                                       ohio_113th_shapefile) %>%
+compactness_by_district_actual <- rbind(ohio_108th_shapefile,
+                                        ohio_111th_shapefile,
+                                        ohio_112th_shapefile,
+                                        ohio_113th_shapefile) %>%
   dplyr::mutate(
     NAMELSAD = factor(NAMELSAD,
                       levels = c("Congressional District 1", "Congressional District 2",
@@ -93,10 +93,11 @@ ohio_congressional_shapefiles <- rbind(ohio_108th_shapefile,
     `Compactness Reock` = `District Area` / mbc_area,
     `Compactness Reock` = as.numeric(`Compactness Reock`)
     ) %>%
-  dplyr::select(-c(minimum_bounding_circle, mbc_area))
-
-  
-
+  dplyr::select(-c(geometry,minimum_bounding_circle, mbc_area)) %>%
+  dplyr::rename(
+    `Congressional Session` = CDSESSN,
+    District = NAMELSAD
+    )
 
 
 # write.csv(compactness_by_district, "compactness_official_districts.csv", row.names = FALSE)

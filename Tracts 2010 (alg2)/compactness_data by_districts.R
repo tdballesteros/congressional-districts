@@ -86,6 +86,10 @@ compactness_by_district <- district_map_shapefile %>%
     # indicates a more compact district.
     `Compactness Schwartzberg` = 1 / (`District Perimeter` / (2 * pi * sqrt(`District Area` / pi))),
     `Compactness Schwartzberg` = as.numeric(`Compactness Schwartzberg`),
+    # Reock compactness score
+    # The Reock Score is the ratio of the area of the district to the area of a minimum bounding cirle
+    # that encloses the district’s geometry. A district’s Reock score falls within the range of [0,1] and
+    # a score closer to 1 indicates a more compact district.
     minimum_bounding_circle = lwgeom::st_minimum_bounding_circle(geometry),
     mbc_area = sf::st_area(minimum_bounding_circle),
     `Compactness Reock` = `District Area` / mbc_area,
