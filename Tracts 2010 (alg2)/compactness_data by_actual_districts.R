@@ -34,6 +34,13 @@ ohio_113th_shapefile <- sf::read_sf(
   dsn = "Data/tl_2013_us_cd113/tl_2013_us_cd113.shp"
 )
 
+## Map Shapefiles
+# Source: US Census Bureau and TIGER/Line
+shape_tract <- sf::read_sf(
+  dsn = "Data/tl_2010_39_tract10/tl_2010_39_tract10.shp") %>%
+  dplyr::rename_with(tolower) %>%
+  dplyr::rename(Geography = geoid10)
+
 ### format data ----------------------------------------------------------------------
   
 ohio_108th_shapefile <- ohio_108th_shapefile %>%

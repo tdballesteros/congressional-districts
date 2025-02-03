@@ -33,6 +33,12 @@ partisanship_data <- lapply(data_folder_list, read.csv)
 # actual 2020 election results
 results <- readxl::read_xlsx("Data/ohio_2020_congressional_election_results_by_district.xlsx")
 
+# actual 2020 state-wide presidential election results
+presidential_results <- data.frame(
+  Party = c("Republican", "Democrat", "Libertarian", "Green", "Write-Ins"),
+  Votes = c(3154834, 2679165, 67569, 18812, 1822)
+  )
+
 
 ### format data ----------------------------------------------------------------------
 
@@ -52,6 +58,15 @@ expected_pr_results <- results %>%
     `Seat Allocation` = 16 * `Vote Percentage`,
     `Seat Allocation (rounded)` = round(`Seat Allocation`)
   )
+
+# calculate expected number of seats for each party based on state-wide presidential election results
+expected_presidential_results <- presidential_results %>%
+  dplyr::mutate(
+    `Vote Percentage` = Votes / sum(Votes, na.rm = TRUE),
+    `Seat Allocation` = 16 * `Vote Percentage`,
+    `Seat Allocation (rounded)` = round(`Seat Allocation`)
+  )
+
 
 for(l in 1:length(partisanship_data)){
   names(partisanship_data[[l]]) <- c("District", "Population", "VAP_MOD", "Votes_Democratic","Votes_Republican",
@@ -101,6 +116,15 @@ t.test(x = winners_dem$Value, alternative = "two.sided",
 t.test(x = winners_rep$Value, alternative = "two.sided",
        mu = 12,
        conf.level = 0.95)
+
+
+hist <- ggplot2::ggplot(data = winners_dem) +
+  ggplot2::scale_color_distiller(palette = "Blues", aesthetics = c("color", "fill")) +
+  ggplot2::geom_histogram(aes(x = Value, fill = 1), binwidth = .5) +
+  ggplot2::xlab("Number of Districts Won by a Democrat") +
+  ggplot2::ylab("Frequency")
+hist
+
 
 
 ### win margin by run ----------------------------------------------------------------------
