@@ -93,12 +93,13 @@ compactness_by_district_actual <- rbind(ohio_108th_shapefile,
     `Compactness Reock` = `District Area` / mbc_area,
     `Compactness Reock` = as.numeric(`Compactness Reock`)
     ) %>%
-  dplyr::select(-c(geometry,minimum_bounding_circle, mbc_area)) %>%
+  as.data.frame() %>%
+  dplyr::select(-c(geometry, minimum_bounding_circle, mbc_area)) %>%
   dplyr::rename(
     `Congressional Session` = CDSESSN,
     District = NAMELSAD
     )
 
 
-# write.csv(compactness_by_district, "compactness_official_districts.csv", row.names = FALSE)
+write.csv(compactness_by_district_actual, "Tracts 2010 (alg2)/Export Data/compactness_official_districts.csv", row.names = FALSE)
 
