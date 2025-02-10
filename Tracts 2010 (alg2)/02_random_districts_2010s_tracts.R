@@ -139,7 +139,7 @@ tract_enclave_df_v2 <- tract_enclave_df %>%
 
 ### functions ----------------------------------------------------------------------
 
-tractdist <- function(tracts, adjdf = adjacency_list, popdf = pop_tracts_total){
+tractDist <- function(tracts, adjdf = adjacency_list, popdf = pop_tracts_total){
   
   # test for contiguity
   if(isContig(popdf$Geography, adjdf) == 0){
@@ -409,10 +409,10 @@ splitIntoTwo <- function(df = pop_tracts_total, adjdf = adjacency_list, version 
   tract2 <- sample(tract_list,1)
   
   # calculate distances to tract1
-  t1_df <- tractdist(as.character(tract1), adjdf_mod, df_mod) %>%
+  t1_df <- tractDist(as.character(tract1), adjdf_mod, df_mod) %>%
     dplyr::rename(dist1 = dist)
   # calculate distances to tract2
-  t2_df <- tractdist(tract2, adjdf_mod, df_mod) %>%
+  t2_df <- tractDist(tract2, adjdf_mod, df_mod) %>%
     dplyr::rename(dist2 = dist)
   
   # join the two distance columns together
@@ -1048,12 +1048,6 @@ split1 <- splitIntoTwo(pop_tracts_total_v2, adjacency_list_v2, version = ver)
 end_time <- Sys.time()
 end_time - start_time
 
-# maptest <- split1[[1]] %>%
-#   dplyr::full_join(shape_tract, by = "Geography") %>%
-#   dplyr::filter(!is.na(Population)) %>%
-#   sf::st_as_sf()
-# mapview(maptest)
-
 pop_half1 <- split1[[1]]
 pop_half2 <- split1[[2]]
 
@@ -1061,8 +1055,8 @@ adj_half1 <- split1[[3]]
 adj_half2 <- split1[[4]]
 
 # population totals for each half
-sum(pop_half1$Population, na.rm = TRUE)
-sum(pop_half2$Population, na.rm = TRUE)
+# sum(pop_half1$Population, na.rm = TRUE)
+# sum(pop_half2$Population, na.rm = TRUE)
 
 
 ### Split 2: Four Parts ----------------------------------------------------------------------
@@ -1098,19 +1092,19 @@ adj_quarter4 <- split2b[[4]]
 #### Split 2 Populations --------------------------------------------------------------------------------
 
 # population totals for each quarter
-sum(pop_quarter1$Population, na.rm = TRUE)
-sum(pop_quarter2$Population, na.rm = TRUE)
-sum(pop_quarter3$Population, na.rm = TRUE)
-sum(pop_quarter4$Population, na.rm = TRUE)
+# sum(pop_quarter1$Population, na.rm = TRUE)
+# sum(pop_quarter2$Population, na.rm = TRUE)
+# sum(pop_quarter3$Population, na.rm = TRUE)
+# sum(pop_quarter4$Population, na.rm = TRUE)
 
 # test if the minimum population value is in the 99.5% - 100.5% of mean target range
-quarter_min_ratio <- min(
-  sum(pop_quarter1$Population, na.rm = TRUE), sum(pop_quarter2$Population, na.rm = TRUE),
-  sum(pop_quarter3$Population, na.rm = TRUE), sum(pop_quarter4$Population, na.rm = TRUE)) /
-  (sum(pop_tracts_total$Population, na.rm = TRUE) / 4) 
-quarter_min_ratio
-
-quarter_min_ratio < 0.995
+# quarter_min_ratio <- min(
+#   sum(pop_quarter1$Population, na.rm = TRUE), sum(pop_quarter2$Population, na.rm = TRUE),
+#   sum(pop_quarter3$Population, na.rm = TRUE), sum(pop_quarter4$Population, na.rm = TRUE)) /
+#   (sum(pop_tracts_total$Population, na.rm = TRUE) / 4) 
+# quarter_min_ratio
+# 
+# quarter_min_ratio < 0.995
 
 
 ### Split 3: Eight Parts ----------------------------------------------------------------------
@@ -1174,14 +1168,14 @@ adj_eigth8 <- split3d[[4]]
 #### Split 3 Populations --------------------------------------------------------------------------------
 
 # population totals for each quarter
-sum(pop_eigth1$Population, na.rm = TRUE)
-sum(pop_eigth2$Population, na.rm = TRUE)
-sum(pop_eigth3$Population, na.rm = TRUE)
-sum(pop_eigth4$Population, na.rm = TRUE)
-sum(pop_eigth5$Population, na.rm = TRUE)
-sum(pop_eigth6$Population, na.rm = TRUE)
-sum(pop_eigth7$Population, na.rm = TRUE)
-sum(pop_eigth8$Population, na.rm = TRUE)
+# sum(pop_eigth1$Population, na.rm = TRUE)
+# sum(pop_eigth2$Population, na.rm = TRUE)
+# sum(pop_eigth3$Population, na.rm = TRUE)
+# sum(pop_eigth4$Population, na.rm = TRUE)
+# sum(pop_eigth5$Population, na.rm = TRUE)
+# sum(pop_eigth6$Population, na.rm = TRUE)
+# sum(pop_eigth7$Population, na.rm = TRUE)
+# sum(pop_eigth8$Population, na.rm = TRUE)
 
 
 ### Split 4: Sixteen Parts ----------------------------------------------------------------------
@@ -1305,22 +1299,22 @@ total_end_time - total_start_time
 #### Split 4 Populations --------------------------------------------------------------------------------
 
 # population totals for each quarter
-sum(pop_sixteenth1$Population, na.rm = TRUE)
-sum(pop_sixteenth2$Population, na.rm = TRUE)
-sum(pop_sixteenth3$Population, na.rm = TRUE)
-sum(pop_sixteenth4$Population, na.rm = TRUE)
-sum(pop_sixteenth5$Population, na.rm = TRUE)
-sum(pop_sixteenth6$Population, na.rm = TRUE)
-sum(pop_sixteenth7$Population, na.rm = TRUE)
-sum(pop_sixteenth8$Population, na.rm = TRUE)
-sum(pop_sixteenth9$Population, na.rm = TRUE)
-sum(pop_sixteenth10$Population, na.rm = TRUE)
-sum(pop_sixteenth11$Population, na.rm = TRUE)
-sum(pop_sixteenth12$Population, na.rm = TRUE)
-sum(pop_sixteenth13$Population, na.rm = TRUE)
-sum(pop_sixteenth14$Population, na.rm = TRUE)
-sum(pop_sixteenth15$Population, na.rm = TRUE)
-sum(pop_sixteenth16$Population, na.rm = TRUE)
+# sum(pop_sixteenth1$Population, na.rm = TRUE)
+# sum(pop_sixteenth2$Population, na.rm = TRUE)
+# sum(pop_sixteenth3$Population, na.rm = TRUE)
+# sum(pop_sixteenth4$Population, na.rm = TRUE)
+# sum(pop_sixteenth5$Population, na.rm = TRUE)
+# sum(pop_sixteenth6$Population, na.rm = TRUE)
+# sum(pop_sixteenth7$Population, na.rm = TRUE)
+# sum(pop_sixteenth8$Population, na.rm = TRUE)
+# sum(pop_sixteenth9$Population, na.rm = TRUE)
+# sum(pop_sixteenth10$Population, na.rm = TRUE)
+# sum(pop_sixteenth11$Population, na.rm = TRUE)
+# sum(pop_sixteenth12$Population, na.rm = TRUE)
+# sum(pop_sixteenth13$Population, na.rm = TRUE)
+# sum(pop_sixteenth14$Population, na.rm = TRUE)
+# sum(pop_sixteenth15$Population, na.rm = TRUE)
+# sum(pop_sixteenth16$Population, na.rm = TRUE)
 
 min(sum(pop_sixteenth1$Population, na.rm = TRUE),
   sum(pop_sixteenth2$Population, na.rm = TRUE),
@@ -1367,7 +1361,7 @@ pop_final <- pop_tracts_total %>%
 
 # table(pop_final$district, useNA = "always")
 
-write.csv(pop_final, "Tracts 2010 (alg2)/Export Data/District Outputs Tracts 2010 v2/output22.csv", row.names = FALSE)
+write.csv(pop_final, "Tracts 2010 (alg2)/99_Export Data/District Outputs Tracts 2010 v2/output41.csv", row.names = FALSE)
 
 
 ### Create Map -----------------------------------------------------------------------
