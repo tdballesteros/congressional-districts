@@ -13,6 +13,7 @@
 ### load libraries ----------------------------------------------------------------------
 library(tibble)
 library(beeswarm)
+library(ggbeeswarm)
 library(hextri)
 library(tidyverse)
 
@@ -23,7 +24,7 @@ library(tidyverse)
 ### load data ----------------------------------------------------------------------
 
 # file path to the folder containing the data
-data_folder_path <- "Tracts 2010 (alg2)/Export Data/Districts by Partisanship"
+data_folder_path <- "Tracts 2010 (alg2)/99_Export Data/Districts by Partisanship v2"
 
 # list all the files within the folder
 data_folder_list <- list.files(data_folder_path, full.names = TRUE)
@@ -60,7 +61,7 @@ expected_pr_results <- results %>%
     `Seat Allocation (rounded)` = round(`Seat Allocation`)
   )
 
-sl_test <- hextri::sainte_lague(expected_pr_results$Votes, 16)
+sainte_lague <- hextri::sainte_lague(expected_pr_results$Votes, 16)
 
 # calculate expected number of seats for each party based on state-wide presidential election results
 expected_presidential_results <- presidential_results %>%
@@ -128,6 +129,10 @@ hist <- ggplot2::ggplot(data = winners_dem) +
   ggplot2::ylab("Frequency")
 hist
 
+# bee <- winners_dem %>%
+#   ggplot2::ggplot(aes(x = Value, y = 1)) +
+#   ggbeeswarm::geom_beeswarm()
+# bee
 
 
 ### win margin by run ----------------------------------------------------------------------

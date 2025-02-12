@@ -8,6 +8,8 @@ library(tidyverse)
 # 'not in' function
 '%!in%' <- function(x,y)!('%in%'(x,y))
 
+# set which output file to use when pulling information from only one outut file
+output_number <- 2
 
 ### load data ----------------------------------------------------------------------
 ## Population Data
@@ -16,6 +18,12 @@ population_data <- read.csv(
   "Data/population_data_2010_by_tract.csv",
   skip = 1,
   colClasses = "character"
+)
+
+## 113th Congressional Session Population Data
+# Source: American Community Survey (ACS)
+congress_pop_data <- read.csv(
+  "Data/ACSDP1Y2012.DP05-2025-02-12T024931.csv"
 )
 
 ## Map Shapefiles
@@ -29,15 +37,22 @@ shape_tract_v2 <- sf::read_sf(
 
 ## Output Data
 # The output CSV file from the random districts tracts 2010 script
-output <- read.csv("Tracts 2010 (alg2)/Export Data/District Outputs Tracts 2010/output02.csv",
-                   colClass = "character") %>%
-  dplyr::select(Geography, district)
+
+# file path to the folder containing the data
+data_folder_path <- "Tracts 2010 (alg2)/99_Export Data/Districts by Race v2"
+
+# list all the files within the folder
+data_folder_list <- list.files(data_folder_path, full.names = TRUE) %>%
+  sort()
+
+# load all files into a single object
+race_data <- lapply(data_folder_list, read.csv)
 
 
 ### format data ----------------------------------------------------------------------
 
-# format race data
-pop_tracts <- population_data %>%
+## Format Race Data
+population_data <- population_data %>%
   dplyr::filter(
     # Ohio FIPS code is 39
     stringr::str_sub(Geography, 10, 11) == "39",
@@ -100,7 +115,87 @@ pop_tracts <- population_data %>%
     `Two or More Races Percentage` = `Two or More Races` / Population,
     `Other Percentage` = Other / Population,
     `Non-White Percentage` = 1 - `White Percentage`
-  )
+  ) %>%
+  # append geographic information
+  dplyr::full_join(shape_tract_v2,
+                   by = "Geography")
+
+## Format 113th Congress Race Data
+total_pop_113th <- congress_pop_data[2,] %>%
+  tidyr::pivot_longer(2:65, names_to = "District", values_to = "Population") %>%
+  dplyr::select(-`Label..Grouping.`) %>%
+  dplyr::filter(stringr::str_detect(District, pattern = "Estimate")) %>%
+  dplyr::mutate(
+    District = stringr::str_sub(District, start = 23, end = 25),
+    District = stringr::str_replace_all(District, pattern = "\\.", replacement = ""),
+    District = factor(District, levels = c(1:16)),
+    Population = stringr::str_replace_all(Population, pattern = "\\,", replacement = ""),
+    Population = as.numeric(Population)
+    )
+
+race_pop_113th <- congress_pop_data[c(70:84),] %>%
+  dplyr::mutate(Race = trimws(`Label..Grouping.`, which = "both", whitespace = "[ \\t\\r\\n\\h]"), .before = 1) %>%
+  dplyr::select(-`Label..Grouping.`) %>%
+  dplyr::filter(Race %in% c("Hispanic or Latino (of any race)", "White alone", "Black or African American alone",
+                            "American Indian and Alaska Native alone", "Asian alone",
+                            "Native Hawaiian and Other Pacific Islander alone", "Some other race alone",
+                            "Two or more races")) %>%
+  tidyr::pivot_longer(2:65, names_to = "District", values_to = "Value") %>%
+  dplyr::filter(stringr::str_detect(District, pattern = "Estimate")) %>%
+  dplyr::mutate(
+    District = stringr::str_sub(District, start = 23, end = 25),
+    District = stringr::str_replace_all(District, pattern = "\\.", replacement = ""),
+    District = factor(District, levels = c(1:16)),
+    Value = stringr::str_replace_all(Value, pattern = "\\,", replacement = ""),
+    Value = as.numeric(Value),
+    Race = dplyr::case_match(
+      Race,
+      "American Indian and Alaska Native alone" ~ "AIAN",
+      "Asian alone" ~ "Asian",
+      "Black or African American alone" ~ "Black",
+      "Hispanic or Latino (of any race)" ~ "Hispanic",
+      "Native Hawaiian and Other Pacific Islander alone" ~ "NHPI",
+      "Some other race alone" ~ "Other",
+      "Two or more races" ~ "Two or More Races",
+      "White alone" ~ "White"
+    )
+  ) %>%
+  tidyr::pivot_wider(names_from = Race, values_from = "Value")
+
+population_113th <- dplyr::full_join(total_pop_113th,
+                                     race_pop_113th,
+                                     by = "District")
+
+## Format Race Output Data
+for(l in 1:length(race_data)){
+  names(race_data[[l]]) <- c("District", "Population", "White %", "Black %", "Asian %", "NHPI %", "AIAN %",
+                             "Two or More Races %", "Other %", "Non-White %", "White Minus Non-White %",
+                             "Race Score", "Diversity Index", "Population Target Ratio")
+}
+
+## Pull Metrics by Map
+white_minus_nonwhite_values <- list()
+race_score_values <- list()
+diversity_index_values <- list()
+population_target_ratio_values <- list()
+
+for(l in 1:length(race_data)){
+  
+  tmp <- race_data[[l]]
+  
+  white_minus_nonwhite_values[[l]] <- tmp$`White Minus Non-White %`
+  race_score_values[[l]] <- tmp$`Race Score`
+  diversity_index_values[[l]] <- tmp$`Diversity Index`
+  population_target_ratio_values[[l]] <- tmp$`Population Target Ratio`
+  
+}
+
+
+
+
+
+## Format Output Data
+output <- race_data[[output_number]]
 
 # format output data as a shapefile
 output_shapefile <- shape_tract_v2 %>%
@@ -124,70 +219,51 @@ output_shapefile <- mget(ls(pattern="district_shape_")) %>%
   bind_rows() %>%
   dplyr::mutate(district = factor(district, c(1:16)))
 
-mapview(output_shapefile)
-
 rm(list=ls(pattern="^district_shape_"))
 
+# retrieve coordinate reference system
+# st_crs(output_shapefile)
 
-st_crs(output_shapefile)
 
-# format race data as a shapefile
-race_map_dataset <- dplyr::full_join(shape_tract_v2,
-                                     pop_tracts,
-                                     by = "Geography")
 
 # create map
 map <- ggplot2::ggplot() +
-  ggplot2::geom_sf(data = race_map_dataset,
+  ggplot2::geom_sf(data = population_data,
                    ggplot2::aes(fill = `Non-White Percentage`), lwd = 0) +
   ggplot2::scale_fill_distiller(palette = "YlOrRd") +
   ggplot2::geom_sf(data = output_shapefile, fill = NA, color = "#000000")
 
-# map <- ggplot2::ggplot(data = district_map_shapefile,
-#                        ggplot2::aes(fill = District)) +
-#   ggplot2::geom_sf() +
-#   ggplot2::scale_fill_manual(values = color_palette) +
-#   ggplot2::theme_void()
-
 map
 
 
-mapview(race_map_dataset, zcol = "Non-White Perc")
+mapview(population_data, zcol = "Non-White Perc")
 
 
+### analyze data ----------------------------------------------------------------------
 
-color_palette <- c("dodgerblue3","firebrick2","chartreuse2","darkorchid3","darkslategray4",
-                   "orange2","lightsalmon","hotpink1","turquoise","darkseagreen2","lightblue3",
-                   "mediumorchid1","plum","ivory2","goldenrod","olivedrab3")
+# White % - Non-White % summary values by map
+white_minus_nonwhite_values_mean <- lapply(white_minus_nonwhite_values, mean) %>% unlist()
+white_minus_nonwhite_values_median <- lapply(white_minus_nonwhite_values, median) %>% unlist()
+white_minus_nonwhite_values_min <- lapply(white_minus_nonwhite_values, min) %>% unlist()
+white_minus_nonwhite_values_max <- lapply(white_minus_nonwhite_values, max) %>% unlist()
 
-map <- pop_final %>%
-  dplyr::left_join(shape_tract_v2,
-                   by = "Geography")
+beeswarm(white_minus_nonwhite_values_min)
 
-for(a in c(1:16)){
-  
-  tmp <- map %>%
-    dplyr::filter(district == a) %>%
-    sf::st_as_sf() %>%
-    sf::st_union() %>%
-    sf::st_as_sf() %>%
-    dplyr::mutate(district = a, .before = 1) %>%
-    dplyr::rename(geometry = 2)
-  
-  assign(paste0("district_shape_",a),tmp)
-  
-}
+# Race Score summary values by map
+race_score_values_mean <- lapply(race_score_values, mean) %>% unlist()
+race_score_values_median <- lapply(race_score_values, median) %>% unlist()
+race_score_values_min <- lapply(race_score_values, min) %>% unlist()
+race_score_values_max <- lapply(race_score_values, max) %>% unlist()
 
-district_map_shapefile <- mget(ls(pattern="district_shape_")) %>%
-  bind_rows() %>%
-  dplyr::mutate(District = factor(district, c(1:16))) %>%
-  dplyr::select(-district)
+# Diversity Index summary values by map
+diversity_index_values_mean <- lapply(diversity_index_values, mean) %>% unlist()
+diversity_index_values_median <- lapply(diversity_index_values, median) %>% unlist()
+diversity_index_values_min <- lapply(diversity_index_values, min) %>% unlist()
+diversity_index_values_max <- lapply(diversity_index_values, max) %>% unlist()
 
-map <- ggplot2::ggplot(data = district_map_shapefile,
-                       ggplot2::aes(fill = District)) +
-  ggplot2::geom_sf() +
-  ggplot2::scale_fill_manual(values = color_palette) +
-  ggplot2::theme_void()
-
-map
+# Population Target Ratio summary values by map
+population_target_ratio_values_mean <- lapply(population_target_ratio_values, mean) %>% unlist()
+population_target_ratio_values_median <- lapply(population_target_ratio_values, median) %>% unlist()
+population_target_ratio_values_min <- lapply(population_target_ratio_values, min) %>% unlist()
+population_target_ratio_values_max <- lapply(population_target_ratio_values, max) %>% unlist()
 
