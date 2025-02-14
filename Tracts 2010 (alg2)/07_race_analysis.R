@@ -267,3 +267,36 @@ population_target_ratio_values_median <- lapply(population_target_ratio_values, 
 population_target_ratio_values_min <- lapply(population_target_ratio_values, min) %>% unlist()
 population_target_ratio_values_max <- lapply(population_target_ratio_values, max) %>% unlist()
 
+### compare to 113th congress data ----------------------------------------------------------------------
+
+# compare total Ohio values between the datasets
+pop_totals_census <- population_data %>%
+  dplyr::group_by() %>%
+  dplyr::summarise(across(c(Population, White, Black, Asian, NHPI, AIAN, `Two or More Races`, Other), \(x) sum(x, na.rm = TRUE))) %>%
+  dplyr::ungroup() %>%
+  t() %>%
+  as.data.frame() %>%
+  dplyr::rename(Census = 1) %>%
+  tibble::rownames_to_column(var = "Race")
+
+pop_totals_congress <- population_113th %>%
+  dplyr::group_by() %>%
+  dplyr::summarise(across(c(Population, White, Black, Asian, NHPI, AIAN, `Two or More Races`, Other), \(x) sum(x, na.rm = TRUE))) %>%
+  dplyr::ungroup() %>%
+  t() %>%
+  as.data.frame() %>%
+  dplyr::rename(Congress = 1) %>%
+  tibble::rownames_to_column(var = "Race")
+
+pop_totals <- dplyr::full_join(pop_totals_census,
+                               pop_totals_congress,
+                               by = "Race") %>%
+  dplyr::mutate(
+    difference = Census - Congress,
+    Census_Perc = round(100 * Census / pop_totals_census$Census[pop_totals_census$Race=="Population"], 2),
+    Congress_Perc = round(100 * Congress / pop_totals_congress$Congress[pop_totals_congress$Race=="Population"], 2)
+    )
+
+
+
+
