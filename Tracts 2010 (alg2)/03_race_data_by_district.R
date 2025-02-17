@@ -15,7 +15,7 @@ library(tidyverse)
 ### load data ----------------------------------------------------------------------
 
 # two-digit code for the output file number
-output_number <- "45"
+output_number <- "60"
 
 # assign folder filepaths
 input_folder <- "Tracts 2010 (alg2)/99_Export Data/District Outputs Tracts 2010 v2"
@@ -113,13 +113,13 @@ districts_race_data <- dplyr::full_join(output, pop_tracts, by = "Geography") %>
   tibble::add_row(
     District = "Ohio Total",
     Population = sum(pop_tracts$Population, na.rm = TRUE),
-    `White %` = 100 *sum(pop_tracts$White, na.rm = TRUE) / sum(pop_tracts$Population, na.rm = TRUE),
-    `Black %` = 100 *sum(pop_tracts$Black, na.rm = TRUE) / sum(pop_tracts$Population, na.rm = TRUE),
-    `Asian %` = 100 *sum(pop_tracts$Asian, na.rm = TRUE) / sum(pop_tracts$Population, na.rm = TRUE),
-    `NHPI %` = 100 *sum(pop_tracts$NHPI, na.rm = TRUE) / sum(pop_tracts$Population, na.rm = TRUE),
-    `AIAN %` = 100 *sum(pop_tracts$AIAN, na.rm = TRUE) / sum(pop_tracts$Population, na.rm = TRUE),
-    `Two or More Races %` = 100 *sum(pop_tracts$`Two or More Races`, na.rm = TRUE) / sum(pop_tracts$Population, na.rm = TRUE),
-    `Other %` = 100 *sum(pop_tracts$Other, na.rm = TRUE) / sum(pop_tracts$Population, na.rm = TRUE),
+    `White %` = 100 * sum(pop_tracts$White, na.rm = TRUE) / sum(pop_tracts$Population, na.rm = TRUE),
+    `Black %` = 100 * sum(pop_tracts$Black, na.rm = TRUE) / sum(pop_tracts$Population, na.rm = TRUE),
+    `Asian %` = 100 * sum(pop_tracts$Asian, na.rm = TRUE) / sum(pop_tracts$Population, na.rm = TRUE),
+    `NHPI %` = 100 * sum(pop_tracts$NHPI, na.rm = TRUE) / sum(pop_tracts$Population, na.rm = TRUE),
+    `AIAN %` = 100 * sum(pop_tracts$AIAN, na.rm = TRUE) / sum(pop_tracts$Population, na.rm = TRUE),
+    `Two or More Races %` = 100 * sum(pop_tracts$`Two or More Races`, na.rm = TRUE) / sum(pop_tracts$Population, na.rm = TRUE),
+    `Other %` = 100 * sum(pop_tracts$Other, na.rm = TRUE) / sum(pop_tracts$Population, na.rm = TRUE),
     `Non-White %` = 100 - `White %`
   ) %>%
   # add Race Score, where % white - % non-white is classified based on:
@@ -144,9 +144,9 @@ districts_race_data <- dplyr::full_join(output, pop_tracts, by = "Geography") %>
       `White % Minus Non-White %` >= 85 ~ 5,
       .default = NA
       ),
-    `Diversity Index` = 1 - (`White %` / 100)^2 + (`Black %` / 100)^2 + (`Asian %` / 100)^2 +
+    `Diversity Index` = 1 - ((`White %` / 100)^2 + (`Black %` / 100)^2 + (`Asian %` / 100)^2 +
       (`NHPI %` / 100)^2 +(`AIAN %` / 100)^2 + (`Two or More Races %` / 100)^2 +
-      (`Other %` / 100)^2,
+      (`Other %` / 100)^2),
     # for districts without missing data, calculate population relative to
     # target population ratio
     `Population Target Ratio` = dplyr::case_when(

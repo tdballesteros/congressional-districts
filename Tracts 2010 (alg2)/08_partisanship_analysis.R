@@ -122,11 +122,16 @@ t.test(x = winners_rep$Value, alternative = "two.sided",
        conf.level = 0.95)
 
 
-hist <- ggplot2::ggplot(data = winners_dem) +
+hist <- ggplot2::ggplot() +
   ggplot2::scale_color_distiller(palette = "Blues", aesthetics = c("color", "fill")) +
-  ggplot2::geom_histogram(aes(x = Value, fill = 1), binwidth = .5) +
+  ggplot2::geom_histogram(data = winners_dem, ggplot2::aes(x = Value, fill = 1), binwidth = .5) +
   ggplot2::xlab("Number of Districts Won by a Democrat") +
-  ggplot2::ylab("Frequency")
+  ggplot2::ylab("Frequency") +
+  ggplot2::labs(title = "Number of Districts Won by a Democrat by Run") +
+  # 2020 actual value
+  ggplot2::geom_point(ggplot2::aes(x = 4, y = sum(winners_dem$Value==4)), color = "red") +
+  # 2020 PR expected value
+  ggplot2::geom_point(ggplot2::aes(x = 7, y = sum(winners_dem$Value==7)), color = "green")
 hist
 
 # bee <- winners_dem %>%

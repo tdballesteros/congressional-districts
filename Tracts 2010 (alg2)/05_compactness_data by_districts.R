@@ -45,6 +45,8 @@ shape_tract <- sf::read_sf(
   dplyr::rename_with(tolower) %>%
   dplyr::rename(Geography = geoid10)
 
+st_crs(shape_tract)
+
 ## Output Data
 # The output CSV file from the random districts tracts 2010 script
 output <- read.csv(paste0(input_folder,"/output",output_number,".csv"),

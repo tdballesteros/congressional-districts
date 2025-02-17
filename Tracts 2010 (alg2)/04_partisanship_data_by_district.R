@@ -13,7 +13,7 @@ library(tidyverse)
 ### load data ----------------------------------------------------------------------
 
 # two-digit code for the output file number
-output_number <- "45"
+output_number <- "60"
 
 # assign folder filepaths
 input_folder <- "Tracts 2010 (alg2)/99_Export Data/District Outputs Tracts 2010 v2"
