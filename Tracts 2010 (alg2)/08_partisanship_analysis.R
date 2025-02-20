@@ -61,7 +61,7 @@ expected_pr_results <- results %>%
     `Seat Allocation (rounded)` = round(`Seat Allocation`)
   )
 
-sainte_lague <- hextri::sainte_lague(expected_pr_results$Votes, 16)
+congressional_results_sainte_lague <- hextri::sainte_lague(expected_pr_results$Votes, 16)
 
 # calculate expected number of seats for each party based on state-wide presidential election results
 expected_presidential_results <- presidential_results %>%
@@ -70,6 +70,9 @@ expected_presidential_results <- presidential_results %>%
     `Seat Allocation` = 16 * `Vote Percentage`,
     `Seat Allocation (rounded)` = round(`Seat Allocation`)
   )
+
+presidential_results_sainte_lague <- hextri::sainte_lague(expected_presidential_results$Votes, 16)
+
 
 
 for(l in 1:length(partisanship_data)){
@@ -131,7 +134,7 @@ hist <- ggplot2::ggplot() +
   # 2020 actual value
   ggplot2::geom_point(ggplot2::aes(x = 4, y = sum(winners_dem$Value==4)), color = "red") +
   # 2020 PR expected value
-  ggplot2::geom_point(ggplot2::aes(x = 7, y = sum(winners_dem$Value==7)), color = "green")
+  ggplot2::geom_point(ggplot2::aes(x = 7, y = sum(winners_dem$Value==7)), color = "darkgreen")
 hist
 
 # bee <- winners_dem %>%
@@ -141,36 +144,36 @@ hist
 
 
 ### win margin by run ----------------------------------------------------------------------
-
-win_margin_absolute <- data.frame()
-win_margin_party <- data.frame()
-
-for(a in 1:length(partisanship_data)){
-  
-  tmp <- partisanship_data[[a]]
-  
-  win_margin_absolute <- c(win_margin_absolute,mean(abs(tmp$`X..Margin..2P.`)))
-  win_margin_party <- c(win_margin_party,mean(tmp$`X..Margin..2P.`))
-  
-}
-
-win_margin_absolute <- unlist(win_margin_absolute)
-win_margin_party <- unlist(win_margin_party)
+# 
+# win_margin_absolute <- data.frame()
+# win_margin_party <- data.frame()
+# 
+# for(a in 1:length(partisanship_data)){
+#   
+#   tmp <- partisanship_data[[a]]
+#   
+#   win_margin_absolute <- c(win_margin_absolute,mean(abs(tmp$`X..Margin..2P.`)))
+#   win_margin_party <- c(win_margin_party,mean(tmp$`X..Margin..2P.`))
+#   
+# }
+# 
+# win_margin_absolute <- unlist(win_margin_absolute)
+# win_margin_party <- unlist(win_margin_party)
 
 
 ### plots ----------------------------------------------------------------------
-
-hist_dem <- ggplot2::ggplot(data = winners_by_run) +
-  ggplot2::scale_color_distiller(palette = "Blues", aesthetics = c("color", "fill")) +
-  ggplot2::geom_histogram(aes(x = Democrat, fill = 1), binwidth = .5)
-  
-hist_dem
-
-hist <- ggplot2::ggplot(data = winners_long) +
-  ggplot2::scale_color_brewer(palette = "Blues", aesthetics = c("color", "fill")) +
-  ggplot2::geom_histogram(aes(x = Value, fill = Winner))
-
-hist
+# 
+# hist_dem <- ggplot2::ggplot(data = winners_by_run) +
+#   ggplot2::scale_color_distiller(palette = "Blues", aesthetics = c("color", "fill")) +
+#   ggplot2::geom_histogram(aes(x = Democrat, fill = 1), binwidth = .5)
+#   
+# hist_dem
+# 
+# hist <- ggplot2::ggplot(data = winners_long) +
+#   ggplot2::scale_color_brewer(palette = "Blues", aesthetics = c("color", "fill")) +
+#   ggplot2::geom_histogram(aes(x = Value, fill = Winner))
+# 
+# hist
 
 # beeswarm(winners_by_run$Democrat)
 

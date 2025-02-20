@@ -1,0 +1,59 @@
+---
+title: "Results"
+author: "Tim Ballesteros"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+```{r import_data, include=FALSE}
+## This document imports results data from the analysis scripts and provides descriptions of the findings.
+
+source("~/R/Congressional Districts/Tracts 2010 (alg2)/07_race_analysis.R", echo = FALSE)
+source("~/R/Congressional Districts/Tracts 2010 (alg2)/08_partisanship_analysis.R", echo = FALSE)
+
+```
+
+## Introduction
+
+## Literature Review
+
+## Methodology
+
+To test whether an algorithm randomly constructing congressional districts within the typical confines - contiguous, equal populations - I use Ohio as an example. Using the post-2010 United States Census redistricting, population data from 2010 is used in conjunction with Ohio's 2020 election results, which use districts based on the 2010 Census.
+
+## Findings
+
+### Partisanship
+
+To create an objective comparison for a partisanly "fair" Ohio map should look like, I calculated the estimated number of seats that would be created based on state-wide presidential election results and congressional results. Each measurement has strengths and weaknesses. The presidential candidates are the same across the entire state, while congressional race results measures election results based on 24 main-party (Democrat and Republican) candidates, two per district. Using congressional election results, however, is theoretically closer to the voting patterns were the state to use state-wide single-member proportional representation, as the congressional races would be more localized than the national presidential race. Recent years, however, have shown increasing nationalization of congressional races.
+
+Using the Sainte-Lague formula for calculating multi-member district proportional representation, the 2020 Ohio election results give an expected seat allocation of `r sum(presidential_results_sainte_lague == 1)` seats to Republicans and `r sum(presidential_results_sainte_lague == 2)` seats to Democrats based on presidential election results, and `r sum(congressional_results_sainte_lague == 1)` seats to Republicans and `r sum(congressional_results_sainte_lague == 2)` seats to Democrats based on congressional election results. The actual seat allocation of Ohio's 16 congressional seats in 2020 was 12 Republican-elected districts and 4 Democrat-elected districts.
+
+Based on `r nrow(winners_rep)` procedurally generated congressional maps of Ohio's 16 seats using 2010 Census data, the average number of seats won by Republicans was `r round(median(winners_rep$Value))` and won by Democrats was `r round(median(winners_dem$Value))`. Table XX shows the frequency of number of seats won by party.
+
+```{r winner_frequency, include=FALSE}
+
+winners_by_run <- winners_by_run %>%
+  tidyr::pivot_longer(2:3, names_to = "Party", values_to = "Seats") %>%
+  dplyr::mutate(Party = factor(Party, levels = c("Republican", "Democrat")))
+
+```
+
+```{r winner_frequency_plot, echo=FALSE, warning=FALSE}
+
+ggplot2::ggplot() +
+  ggplot2::geom_histogram(data = winners_by_run, ggplot2::aes(x = Seats, fill = Party), binwidth = .5) +
+  ggplot2::scale_fill_manual(values = c("red", "blue")) +
+  ggplot2::xlab("Number of Districts Won by Party") +
+  ggplot2::ylab("Frequency") +
+  ggplot2::labs(title = "Number of Districts Won by Party by District Map") +
+  ggplot2::xlim(1, 16) +
+  # 2020 actual value
+  ggplot2::geom_point(ggplot2::aes(x = c(4, 12), y = c(sum(winners_dem$Value==4), sum(winners_rep$Value==12))), color = "black") +
+  # 2020 PR expected value
+  ggplot2::geom_point(ggplot2::aes(x = c(7, 9), y = c(sum(winners_dem$Value==7), sum(winners_rep$Value==9))), color = "white")
+
+
+```
+
+
