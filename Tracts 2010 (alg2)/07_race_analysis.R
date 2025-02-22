@@ -45,6 +45,9 @@ shape_tract_v2 <- sf::read_sf(
   dplyr::filter(Geography %!in% c("39095990000", "39043990100", "39093990200",
                                   "39035990000", "39085990000", "39007990000"))
 
+## 113th Congress Tracts Assigned to Districts
+ohio_113th_assigned_tracts <- read.csv("Tracts 2010 (alg2)/99_Export Data/ohio_113th_assigned_tracts.csv")
+
 ## Output Data
 # The output CSV file from the random districts tracts 2010 script
 
@@ -129,6 +132,30 @@ population_data <- population_data %>%
   # append geographic information
   dplyr::full_join(shape_tract_v2,
                    by = "Geography")
+
+#### format census congressional district race data -------------------------------------------------------
+census_data_113th <- population_data %>%
+  dplyr::mutate(Geography = as.numeric(Geography)) %>%
+  dplyr::left_join(ohio_113th_assigned_tracts, by = "Geography") %>%
+  dplyr::group_by(District) %>%
+  dplyr::summarise(across(c(Population, White, Black, Asian, NHPI, AIAN, `Two or More Races`, Other),
+                          \(x) sum(x, na.rm = TRUE))) %>%
+  dplyr::ungroup() %>%
+  dplyr::mutate(
+    `White %` = 100 * White / Population,
+    `Black %` = 100 * Black / Population,
+    `AIAN %` = 100 * AIAN / Population,
+    `Asian %` = 100 * Asian / Population,
+    `NHPI %` = 100 * NHPI / Population,
+    `Other %` = 100 * Other / Population,
+    `Two or More Races %` = 100 * `Two or More Races` / Population,
+    `Diversity Index` = 1 - ((`White %`/100)^2 + (`Black %`/100)^2 + (`AIAN %`/100)^2 + (`Asian %`/100)^2 +
+                               (`NHPI %`/100)^2 + (`Other %`/100)^2 + (`Two or More Races %`/100)^2),
+    `Non-White %` = 100 - `White %`,
+    `White Minus Non-White %` = `White %` - `Non-White %`,
+    # `Race Score`
+    `Population Target Ratio` = Population / (sum(population_data$Population, na.rm = TRUE)/16)
+  )
 
 #### format acs race data ----------------------------------------------------------------------
 #### format 113th congress data ----------------------------------------------------------------------
