@@ -42,55 +42,86 @@ shape_tract <- sf::read_sf(
   dplyr::rename_with(tolower) %>%
   dplyr::rename(Geography = geoid10)
 
-
-### format data ----------------------------------------------------------------------
-  
-# create an outline of Ohio removing most of Lake Erie
-# this will be applied to the congressional and tract shapefiles to ensure equal inclusion of area
-outline_shapefile_initial <- ohio_108th_shapefile %>%
-  dplyr::filter(CD108FP %in% c("05","09")) %>%
-  sf::st_as_sf() %>%
-  sf::st_cast("POLYGON") %>%
-  sfheaders::sf_remove_holes() %>%
-  sf::st_union() %>%
-  sf::st_as_sf()
-
-outline_shapefile <- ohio_108th_shapefile %>%
-  dplyr::filter(CD108FP %!in% c("05","09")) %>%
+## Erie Lake Shapefile
+# Source: US Geological Survey
+shape_erie_lake <- sf::read_sf("Data/hydro_p_LakeErie/hydro_p_LakeErie.shp") %>%
   sf::st_union() %>%
   sf::st_as_sf() %>%
-  rbind(outline_shapefile_initial) %>%
-  sf::st_union() %>%
-  sf::st_as_sf()
+  sf::st_sf(crs = "NAD83")
 
 
+### format shapefile ----------------------------------------------------------------------
+
+shape_tract <- shape_tract %>%
+  sf::st_difference(shape_erie_lake)
 
 ohio_108th_shapefile <- ohio_108th_shapefile %>%
   dplyr::select(CDSESSN, NAMELSAD00, geometry) %>%
   dplyr::rename(NAMELSAD = NAMELSAD00) %>%
-  sf::st_intersection(outline_shapefile)
+  sf::st_difference(shape_erie_lake)
 
 ohio_111th_shapefile <- ohio_111th_shapefile %>%
   dplyr::select(CDSESSN, NAMELSAD10, geometry) %>%
   dplyr::rename(NAMELSAD = NAMELSAD10) %>%
-  sf::st_intersection(outline_shapefile)
+  sf::st_difference(shape_erie_lake)
 
 ohio_112th_shapefile <- ohio_112th_shapefile %>%
   dplyr::filter(STATEFP == 39) %>%
   dplyr::select(CDSESSN, NAMELSAD, geometry) %>%
-  sf::st_intersection(outline_shapefile)
+  sf::st_difference(shape_erie_lake)
 
 ohio_113th_shapefile <- ohio_113th_shapefile %>%
   dplyr::filter(STATEFP == 39) %>%
   dplyr::select(CDSESSN, NAMELSAD, geometry) %>%
-  sf::st_intersection(outline_shapefile)
+  sf::st_difference(shape_erie_lake)
+  
+# # create an outline of Ohio removing most of Lake Erie
+# # this will be applied to the congressional and tract shapefiles to ensure equal inclusion of area
+# outline_shapefile_initial <- ohio_108th_shapefile %>%
+#   dplyr::filter(CD108FP %in% c("05","09")) %>%
+#   sf::st_as_sf() %>%
+#   sf::st_cast("POLYGON") %>%
+#   sfheaders::sf_remove_holes() %>%
+#   sf::st_union() %>%
+#   sf::st_as_sf()
+# 
+# outline_shapefile <- ohio_108th_shapefile %>%
+#   dplyr::filter(CD108FP %!in% c("05","09")) %>%
+#   sf::st_union() %>%
+#   sf::st_as_sf() %>%
+#   rbind(outline_shapefile_initial) %>%
+#   sf::st_union() %>%
+#   sf::st_as_sf()
+
+
+### format data ----------------------------------------------------------------------
+
+# ohio_108th_shapefile <- ohio_108th_shapefile %>%
+#   dplyr::select(CDSESSN, NAMELSAD00, geometry) %>%
+#   dplyr::rename(NAMELSAD = NAMELSAD00) %>%
+#   sf::st_intersection(outline_shapefile)
+# 
+# ohio_111th_shapefile <- ohio_111th_shapefile %>%
+#   dplyr::select(CDSESSN, NAMELSAD10, geometry) %>%
+#   dplyr::rename(NAMELSAD = NAMELSAD10) %>%
+#   sf::st_intersection(outline_shapefile)
+# 
+# ohio_112th_shapefile <- ohio_112th_shapefile %>%
+#   dplyr::filter(STATEFP == 39) %>%
+#   dplyr::select(CDSESSN, NAMELSAD, geometry) %>%
+#   sf::st_intersection(outline_shapefile)
+# 
+# ohio_113th_shapefile <- ohio_113th_shapefile %>%
+#   dplyr::filter(STATEFP == 39) %>%
+#   dplyr::select(CDSESSN, NAMELSAD, geometry) %>%
+#   sf::st_intersection(outline_shapefile)
 
 
 compactness_by_district_actual <- rbind(ohio_108th_shapefile,
                                         ohio_111th_shapefile,
                                         ohio_112th_shapefile,
                                         ohio_113th_shapefile) %>%
-  sf::sf_use_s2(FALSE) %>%
+  # sf::sf_use_s2(FALSE) %>%
   dplyr::mutate(
     geometry = sf::st_collection_extract(geometry),
     NAMELSAD = factor(NAMELSAD,
@@ -137,5 +168,5 @@ compactness_by_district_actual <- rbind(ohio_108th_shapefile,
     )
 
 
-# write.csv(compactness_by_district_actual, "Tracts 2010 (alg2)/99_Export Data/compactness_official_districts.csv", row.names = FALSE)
+write.csv(compactness_by_district_actual, "Tracts 2010 (alg2)/99_Export Data/compactness_official_districts.csv", row.names = FALSE)
 
