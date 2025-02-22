@@ -19,7 +19,7 @@ library(tidyverse)
 ### load data ----------------------------------------------------------------------
 
 # two-digit code for the output file number
-output_number <- "01"
+output_number <- "02"
 
 # assign folder filepaths
 input_folder <- "Tracts 2010 (alg2)/99_Export Data/District Outputs Tracts 2010 v2"
@@ -45,16 +45,33 @@ shape_tract <- sf::read_sf(
   dplyr::rename_with(tolower) %>%
   dplyr::rename(Geography = geoid10)
 
-st_crs(shape_tract)
-
 ## Output Data
 # The output CSV file from the random districts tracts 2010 script
 output <- read.csv(paste0(input_folder,"/output",output_number,".csv"),
                    colClass = "character") %>%
   dplyr::select(Geography,district)
 
+## Erie Lake Shapefile
+# Source: US Geological Survey
+shape_erie_lake <- sf::read_sf("Data/hydro_p_LakeErie/hydro_p_LakeErie.shp") %>%
+  sf::st_union() %>%
+  sf::st_as_sf() %>%
+  sf::st_sf(crs = "NAD83")
+
+
+### format shapefile ----------------------------------------------------------------------
+# temporary fix - use Erie Lake shapefile to remove water from the census tract shapefile
+shape_tract <- shape_tract %>%
+  sf::st_difference(shape_erie_lake)
+
 
 ### format data ----------------------------------------------------------------------
+
+run <- c(42:60) %>%
+  stringr::str_pad(width = 2, side = "left", pad = "0")
+
+for(output_number in run){
+
 
 area <- shape_tract %>%
   dplyr::left_join(output, by = "Geography") %>%
@@ -109,7 +126,8 @@ compactness_by_district <- district_map_shapefile %>%
     `Compactness Reock` = as.numeric(`Compactness Reock`)
   ) %>%
   as.data.frame() %>%
-  dplyr::select(-c(district, geometry, minimum_bounding_circle, mbc_area))
+  dplyr::select(-c(district, geometry, minimum_bounding_circle, mbc_area)) %>%
+  dplyr::arrange(District)
 
 # mapview(compactness_by_district)
 
@@ -117,3 +135,4 @@ write.csv(compactness_by_district,
           paste0(output_folder,"/compactness_tracts",output_number,".csv"),
           row.names = FALSE
           )
+}
