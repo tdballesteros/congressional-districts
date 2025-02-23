@@ -93,29 +93,24 @@ ohio_113th_shapefile <- ohio_113th_shapefile %>%
 #   sf::st_union() %>%
 #   sf::st_as_sf()
 
+ohio112 <- ggplot2::ggplot(data = ohio_112th_shapefile,
+                       ggplot2::aes(fill = NAMELSAD)) +
+  ggplot2::geom_sf() +
+  ggplot2::theme_void() +
+  ggplot2::theme(legend.position="none")
+
+ohio113 <- ggplot2::ggplot(data = ohio_113th_shapefile,
+                           ggplot2::aes(fill = NAMELSAD)) +
+  ggplot2::geom_sf() +
+  ggplot2::theme_void() +
+  ggplot2::theme(legend.position="none")
+
+
+gridExtra::grid.arrange(ohio112, ohio113, ncol = 2)
+
+
 
 ### format data ----------------------------------------------------------------------
-
-# ohio_108th_shapefile <- ohio_108th_shapefile %>%
-#   dplyr::select(CDSESSN, NAMELSAD00, geometry) %>%
-#   dplyr::rename(NAMELSAD = NAMELSAD00) %>%
-#   sf::st_intersection(outline_shapefile)
-# 
-# ohio_111th_shapefile <- ohio_111th_shapefile %>%
-#   dplyr::select(CDSESSN, NAMELSAD10, geometry) %>%
-#   dplyr::rename(NAMELSAD = NAMELSAD10) %>%
-#   sf::st_intersection(outline_shapefile)
-# 
-# ohio_112th_shapefile <- ohio_112th_shapefile %>%
-#   dplyr::filter(STATEFP == 39) %>%
-#   dplyr::select(CDSESSN, NAMELSAD, geometry) %>%
-#   sf::st_intersection(outline_shapefile)
-# 
-# ohio_113th_shapefile <- ohio_113th_shapefile %>%
-#   dplyr::filter(STATEFP == 39) %>%
-#   dplyr::select(CDSESSN, NAMELSAD, geometry) %>%
-#   sf::st_intersection(outline_shapefile)
-
 
 compactness_by_district_actual <- rbind(ohio_108th_shapefile,
                                         ohio_111th_shapefile,

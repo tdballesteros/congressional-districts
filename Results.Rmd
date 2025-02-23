@@ -42,21 +42,167 @@ winners_by_run <- winners_by_run %>%
 ```{r winner_frequency_plot, echo=FALSE, warning=FALSE}
 
 ggplot2::ggplot() +
-  ggplot2::geom_histogram(data = winners_by_run, ggplot2::aes(x = Seats, fill = Party), binwidth = .5) +
-  ggplot2::scale_fill_manual(values = c("red", "blue")) +
-  ggplot2::xlab("Number of Districts Won by Party") +
-  ggplot2::ylab("Frequency") +
-  ggplot2::labs(title = "TABLE XX. Number of Districts Won by Party by District Map") +
+  ggplot2::geom_histogram(data = winners_by_run,
+                            ggplot2::aes(x = Seats, fill = Party),
+                          binwidth = 0.5) +
+  ggplot2::scale_fill_manual(values = c("red", "blue"), label = c("Republican", "Democrat")) +
+  # 2020 actual results
+  ggplot2::geom_vline(ggplot2::aes(xintercept = c(4, 12), color = "black"), linetype = "dotdash") +
+  ggplot2::geom_vline(ggplot2::aes(xintercept = c(7, 9), color = "darkgray"), linetype = "dotdash") +
+  ggplot2::scale_color_manual(values = c("black","darkgray"), label = c("2020 Actual","2020 PR Expected")) +
+  ggplot2::labs(
+    title = "TABLE XX. Number of Districts Won by Party",
+    subtitle = "By District Map versus 2020 results",
+    x = "Number of Districts Won by Party",
+    y = "Frequency",
+    caption = "Sources: Redistricting Data Hub (RDH), 2020 results"
+  ) +
   ggplot2::xlim(1, 16) +
-  # 2020 actual value
-  ggplot2::geom_point(ggplot2::aes(x = c(4, 12), y = c(sum(winners_dem$Value==4), sum(winners_rep$Value==12))), color = "black") +
-  # 2020 PR expected value
-  ggplot2::geom_point(ggplot2::aes(x = c(7, 9), y = c(sum(winners_dem$Value==7), sum(winners_rep$Value==9))), color = "white")
-
+  ggplot2::theme_light()
 
 ```
 
-### Population, Race, and Ethnicity
+The random algorithm on average produced a seat distribution of 11 Republican to 5 Democrat seats, which is closer to the expected proportional representation than the actual results.
+
+### Population
+
+```{r pop_numbers, include=FALSE}
+
+# pretty versions of numbers for use in text
+
+# district target population (rounded)
+target_pop <- prettyNum(round(sum(population_data$Population)/16), big.mark = ",")
+
+# district population legal spread in 2010
+target_pop_spread <- prettyNum(round(0.1*sum(population_data$Population)/16), big.mark = ",")
+  
+
+# 112th Congress population extremes - Census
+congress112_min_value <- prettyNum(round(min(population_113th$Population)), big.mark = ",")
+congress112_max_value <- prettyNum(round(max(population_113th$Population)), big.mark = ",")
+
+congress112_min_perc <- round(100*min(population_113th$`Population Target Ratio`),2)
+congress112_max_perc <- round(100*max(population_113th$`Population Target Ratio`),2)
+
+# number of generated maps
+num_gen_maps <- length(population_target_ratio_values_median)
+
+# generated maps population extremes - Census
+gen_maps_min_value_min <- prettyNum(round((min(population_target_ratio_values_min)/100)*(sum(population_data$Population)/16)), big.mark = ",")
+gen_maps_max_value_max <- prettyNum(round((max(population_target_ratio_values_max)/100)*sum(population_data$Population)/16), big.mark = ",")
+
+gen_maps_min_perc_min <- round(min(population_target_ratio_values_min),2)
+gen_maps_max_perc_max <- round(max(population_target_ratio_values_max),2)
+
+gen_maps_min_value_median <- prettyNum(round((median(population_target_ratio_values_min)/100)*(sum(population_data$Population)/16)), big.mark = ",")
+gen_maps_max_value_median <- prettyNum(round((median(population_target_ratio_values_max)/100)*sum(population_data$Population)/16), big.mark = ",")
+
+gen_maps_min_perc_median <- round(median(population_target_ratio_values_min),2)
+gen_maps_max_perc_median <- round(median(population_target_ratio_values_max),2)
+
+```
+
+Congressional districts within each state are required to have equal populations, though the degree of their margin of error varies by state. Ultimately, districts will have small deviations above or below the target amount due to compiling geographic units of various populations. Ohio's Constitution, as updated in 2021, stipulates that "[i]n no event shall any district contain a population of less than ninety-five per cent nor more than one hundred five per cent of the applicable ratio of representation" (Article XI, Section 3(B)(1)).^[Ohio Constitution Article XI, Section 3: https://codes.ohio.gov/ohio-constitution/section-11.3] This allows districts to have a population range of 10% of the target district population, which based on the 2010 Census would be `r target_pop_spread` individuals.
+
+For Ohio's redrawing following the 2010 Census, each district was expected to have approximately `r target_pop` individuals across its now 16 congressional districts. Using the same Census data, Ohio's districts in the 113th Congress ranged from `r congress112_min_value` individuals (`r congress112_min_perc`% of the target population) to `r congress112_max_value` individuals (`r congress112_max_perc`%).
+
+```{r target_population_extremes, echo=FALSE}
+
+ggplot2::ggplot() +
+  ggbeeswarm::geom_beeswarm(data = target_pop_df,
+                            ggplot2::aes(x = variable, y = value, color = Group)) +
+  ggplot2::scale_color_manual(values = c("black", "red", "black")) +
+  ggplot2::geom_hline(ggplot2::aes(yintercept = c(95,105), color = "Legal Limits"), linetype = "dotdash")  +
+  ggplot2::labs(
+    title = "TABLE XX. Target Population Summary Values",
+    subtitle = "Runs versus 112th Congress",
+    x = "Summary Value by Run",
+    y = "Percentage of District Target Population",
+    caption = "Sources: US Census Bureau, 2010 Census"
+  ) +
+  ggplot2::theme_light() +
+  ggplot2::theme(
+    axis.ticks.x = element_blank()
+    ) +
+  # ggplot2::scale_y_continuous(breaks = c(94:106))
+  ggplot2::scale_y_continuous(
+    breaks = c(94:106),
+    labels=c(paste0(c(94:106),"%")),
+    minor_breaks = NULL
+    )
+
+```
+
+Across the `r num_gen_maps` generated maps, the districts created with the largest deviations above and below the target population value were `r gen_maps_min_value_min` (`r gen_maps_min_perc_min`%) and `r gen_maps_max_value_max` (`r gen_maps_max_perc_max`%), respectively. All district populations fell within ±1% of the target population. On average, the median minimum and maximum district population values across the `r num_gen_maps` generated maps were `r gen_maps_min_value_median` (`r gen_maps_min_perc_median`%) and `r gen_maps_max_value_median` (`r gen_maps_max_perc_median`%) individuals, respectively.
+
+### Race
+
+```{r race_numbers, include=FALSE}
+
+# state-wide race % - Census
+ohio_white_perc <- sprintf("%.2f", 100 * sum(population_113th$White, na.rm = TRUE) / sum(population_113th$Population, na.rm = TRUE))
+ohio_black_perc <- sprintf("%.2f", 100 * sum(population_113th$Black, na.rm = TRUE) / sum(population_113th$Population, na.rm = TRUE))
+ohio_asian_perc <- sprintf("%.2f", 100 * sum(population_113th$Asian, na.rm = TRUE) / sum(population_113th$Population, na.rm = TRUE))
+ohio_aian_perc <- sprintf("%.2f", 100 * sum(population_113th$AIAN, na.rm = TRUE) / sum(population_113th$Population, na.rm = TRUE))
+ohio_nhpi_perc <- sprintf("%.2f", 100 * sum(population_113th$NHPI, na.rm = TRUE) / sum(population_113th$Population, na.rm = TRUE))
+ohio_other_perc <- sprintf("%.2f", 100 * sum(population_113th$Other, na.rm = TRUE) / sum(population_113th$Population, na.rm = TRUE))
+ohio_twoormore_perc <- sprintf("%.2f", 100 * sum(population_113th$`Two or More Races`, na.rm = TRUE) / sum(population_113th$Population, na.rm = TRUE))
+
+ohio_nonwhite_perc <- sprintf("%.2f", 100 - (100 * sum(population_113th$White, na.rm = TRUE) / sum(population_113th$Population, na.rm = TRUE)))
+
+# Note: NHPI and AIAN are collapsed into Other due to low counts
+ohio_total_race_props <- c(
+  White = 82.7,
+  Black = 12.24,
+  Asian = 1.74,
+  Other = 0.93,
+  `Two or More` = 2.3
+  ) %>%
+  round(0)
+
+```
+
+States are forbidden from use race or ethnicity to politically disadvantage one or more particular groups. However, several states require the creation of one or more majority-minority districts, that is, a district with a larger proportion of non-White  individuals (Hispanic White individuals included) than White, non-Hispanic individuals. With the strong (though decreasing) correlation between race/ethnicity and voting patterns, separating redistricting based on demographic and partisan characteristics is challenging.
+
+Due to data availability, ethnicity is not included in this analysis. Based on the 2010 Census, Ohio's Hispanic population was 354,674, or 3.1% of the state's population. Out of this, 180,174 individuals, or just over half (50.8%) of Ohio's Hispanic population, identified as White alone, accounting for 1.56% of Ohio's total population. Due to the exclusion of Hispanic data, this analysis's results will show slightly elevated numbers of White individuals and slightly lowered numbers of non-White individuals.
+
+Overall, Ohio's population according to the 2010 Census was `r ohio_white_perc`% White, `r ohio_black_perc`% Black, `r ohio_asian_perc`% Asian, `r ohio_aian_perc`% American Indian or Alaskan Native (AIAN), `r ohio_nhpi_perc`% Native Hawaiian or Pacific Islander (NHPI), `r ohio_other_perc`% other race, and `r ohio_twoormore_perc`% individuals identifying as two or more races. The proportion of non-White individuals in Ohio is `r ohio_nonwhite_perc`%.
+
+```{r ohio_total_pop_waffle, echo=FALSE}
+
+waffle::waffle(
+  ohio_total_race_props,
+  rows = 5,
+  legend_pos = "bottom",
+  title = "Ohio, Population by Race",
+  size = 1
+  )
+  
+```
+
+
+```{r columbus_race, include=FALSE}
+
+# # pull 112th congress Columbus area boundary
+# columbus_112 <- ohio_112th_shapefile %>%
+#   dplyr::filter(NAMELSAD %in% c("Congressional District 7", "Congressional District 12", "Congressional District 15"))
+# 
+# # create map
+# map <- ggplot2::ggplot() +
+#   # st_crop(xlim = c(82.5, 83.5), ylim = c(39.5, 40.5)) +
+#   ggplot2::geom_sf(data = population_data,
+#                    ggplot2::aes(fill = `Non-White Percentage`), lwd = 0) +
+#   ggplot2::scale_fill_distiller(palette = "YlOrRd") +
+#   ggplot2::geom_sf(data = columbus_112, fill = NA, color = "#000000") +
+#   coord_sf(xlim = c(-82.6, -83.25), ylim = c(39.75, 40.25), expand = FALSE)
+# 
+# 
+# map
+# 
+# 
+# mapview(population_data, zcol = "Non-White Perc")
+
+```
 
 ### District Compactness
 
