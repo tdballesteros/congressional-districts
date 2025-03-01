@@ -29,6 +29,18 @@ population_data <- read.csv(
   colClasses = "character"
 )
 
+## Population Data - New
+# Source: US Census Bureau
+population_data <- read.csv(
+  "Data/DECENNIALSF12010.P9.csv",
+  colClasses = "character"
+)
+
+## Ohio County - FIPS Code Crosswalk
+county_fips_xwalk <- read.csv(
+  "Data/ohio_county_fips_crosswalk.csv"
+)
+
 ## Output Data
 # The output CSV file from the random districts tracts 2010 script
 output <- read.csv(paste0(input_folder,"/output",output_number,".csv"),
@@ -37,62 +49,115 @@ output <- read.csv(paste0(input_folder,"/output",output_number,".csv"),
 
 
 ### format data ----------------------------------------------------------------------
-pop_tracts <- population_data %>%
-  dplyr::filter(
-    # Ohio FIPS code is 39
-    stringr::str_sub(Geography, 10, 11) == "39",
-    # filter out total row for Ohio
-    Geography != "0400000US39"
-  ) %>%
-  tidyr::pivot_longer(3:73, names_to = "Race", values_to = "Population") %>%
-  dplyr::select(-X) %>%
-  dplyr::filter(Race %!in% c(
-    "Total..Population.of.one.race",
-    "Total..Two.or.More.Races",
-    "Total..Two.or.More.Races..Population.of.six.races",
-    "Total..Two.or.More.Races..Population.of.five.races",
-    "Total..Two.or.More.Races..Population.of.four.races",
-    "Total..Two.or.More.Races..Population.of.three.races",
-    "Total..Two.or.More.Races..Population.of.two.races"
-    )) %>%
+county_fips_xwalk <- county_fips_xwalk %>%
   dplyr::mutate(
-    Geography = stringr::str_sub(Geography, 10),
-    # recode race variable names and consolidate multirace into one category
-    Race = dplyr::case_when(
-      Race == "Total" ~ "Population",
-      Race == "Total..Population.of.one.race..American.Indian.and.Alaska.Native.alone" ~ "AIAN",
-      Race == "Total..Population.of.one.race..Asian.alone" ~ "Asian",
-      Race == "Total..Population.of.one.race..Black.or.African.American.alone" ~ "Black",
-      Race == "Total..Population.of.one.race..Native.Hawaiian.and.Other.Pacific.Islander.alone" ~ "NHPI",
-      Race == "Total..Population.of.one.race..Some.Other.Race.alone" ~ "Other",
-      Race == "Total..Population.of.one.race..White.alone" ~ "White",
-      .default = "Two or More Races"
-    ),
-    # several tracts have non-numeric entries in the Population  field; manually correct these
-    # and convert all data to numeric values
-    Population = dplyr::case_when(
-      Geography %in% c("39035118800", "39035141300", "39035187105", "39035187106", "39035195900", "39055310200",
-                       "39055310600", "39055310800", "39055310900", "39055311000", "39055311300", "39055311400",
-                       "39055311600", "39055311700", "39055311800", "39055312100", "39055312202", "39055312300",
-                       "39055312400", "39085206400", "39155930500") &
-        Race == "Population" ~ as.numeric(stringr::str_sub(Population, 1, 4)),
-      .default = as.numeric(Population)
+    county = paste0(county," County"),
+    fips = stringr::str_pad(fips,
+                            width = 3,
+                            side = "left",
+                            pad = "0")
+  )
+
+
+pop_tracts <- population_data %>%
+  dplyr::mutate(`Label..Grouping.` = trimws(`Label..Grouping.`, which = "both", whitespace = "[ \\t\\r\\n\\h]")) %>%
+  dplyr::filter(`Label..Grouping.` %in% c(
+    "Total:",
+    "Hispanic or Latino",
+    "White alone",
+    "Black or African American alone",
+    "American Indian and Alaska Native alone",
+    "Asian alone",
+    "Native Hawaiian and Other Pacific Islander alone",
+    "Some Other Race alone",
+    "Two or More Races:"
     )) %>%
-  # sum Population over Geography & Race
-  dplyr::group_by(Geography, Race) %>%
-  dplyr::summarise(
-    Population = sum(Population, na.rm = TRUE)
+  dplyr::mutate(Race = dplyr::case_match(
+    `Label..Grouping.`,
+    "Total:" ~ "Population",
+    "Hispanic or Latino" ~ "Hispanic",
+    "White alone" ~ "White",
+    "Black or African American alone" ~ "Black",
+    "American Indian and Alaska Native alone" ~ "AIAN",
+    "Asian alone" ~ "Asian",
+    "Native Hawaiian and Other Pacific Islander alone" ~ "NHPI",
+    "Some Other Race alone" ~ "Other",
+    "Two or More Races:" ~ "Two or More Races"
+  ), .before = 1) %>%
+  dplyr::select(-`Label..Grouping.`) %>%
+  tidyr::pivot_longer(2:2953, names_to = "Tract", values_to = "Population") %>%
+  dplyr::mutate(
+    # total populations for these tracts have additional alphanumeric characters
+    Population = dplyr::case_when(
+      Tract %in% c("Census.Tract.1188..Cuyahoga.County..Ohio",
+                    "Census.Tract.1413..Cuyahoga.County..Ohio",
+                    "Census.Tract.1871.05..Cuyahoga.County..Ohio",
+                    "Census.Tract.1871.06..Cuyahoga.County..Ohio",
+                    "Census.Tract.1959..Cuyahoga.County..Ohio",
+                    "Census.Tract.3102..Geauga.County..Ohio",
+                    "Census.Tract.3106..Geauga.County..Ohio",
+                    "Census.Tract.3108..Geauga.County..Ohio",
+                    "Census.Tract.3109..Geauga.County..Ohio",
+                    "Census.Tract.3110..Geauga.County..Ohio",
+                    "Census.Tract.3113..Geauga.County..Ohio",
+                    "Census.Tract.3114..Geauga.County..Ohio",
+                    "Census.Tract.3116..Geauga.County..Ohio",
+                    "Census.Tract.3117..Geauga.County..Ohio",
+                    "Census.Tract.3118..Geauga.County..Ohio",
+                    "Census.Tract.3121..Geauga.County..Ohio",
+                    "Census.Tract.3122.02..Geauga.County..Ohio",
+                    "Census.Tract.3123..Geauga.County..Ohio",
+                    "Census.Tract.3124..Geauga.County..Ohio",
+                    "Census.Tract.2064..Lake.County..Ohio",
+                    "Census.Tract.9305..Trumbull.County..Ohio"
+      ) & Race == "Population" ~ stringr::str_sub(Population, 1, 5),
+      .default = Population
+    ),
+    Population = stringr::str_replace_all(Population, "\\,", ""),
+    Population = as.numeric(Population),
+    county_name = stringr::str_sub(Tract, 16, -6),
+    county_name = stringr::str_replace_all(county_name, c("[0-9]" = "", "\\." = " ")),
+    county_name = trimws(county_name, which = "both", whitespace = "[ \\t\\r\\n\\h]"),
+    tract = stringr::str_sub(Tract, 14, 20),
+    tract = stringr::str_replace_all(tract, "[A-Za-z]", ""),
+    # repeated to remove sets of double periods
+    tract = stringr::str_replace_all(tract, "\\.$", ""),
+    tract = stringr::str_replace_all(tract, "\\.$", ""),
+    tract4 = stringr::str_pad(stringr::str_extract(tract, "^([^.]+)"),
+                              width = 4,
+                              side = "left",
+                              pad = "0"),
+    tract2 = stringr::str_pad(stringr::str_extract(tract, "(?<=\\.)[^.]+$"),
+                              width = 2,
+                              side = "left",
+                              pad = "0"),
+    tract2 = ifelse(is.na(tract2),"00",tract2),
+    tract_formatted = paste0(tract4, tract2)
+    ) %>%
+  dplyr::left_join(county_fips_xwalk, dplyr::join_by("county_name" == "county")) %>%
+  dplyr::mutate(
+    Geography = paste0("39",fips,tract_formatted)
   ) %>%
-  dplyr::ungroup() %>%
-  tidyr::pivot_wider(names_from = Race, values_from = Population) %>%
+  dplyr::select(Geography, Race, Population) %>%
+  tidyr::pivot_wider(names_from = "Race", values_from = "Population") %>%
   # reorder columns
-  dplyr::select(Geography, Population, White, Black, Asian,
-                NHPI, AIAN, `Two or More Races`, Other)
+  dplyr::select(Geography, Population, White, Black, Hispanic, Asian, NHPI, AIAN, Other, `Two or More Races`)
 
 district_target_population <- sum(pop_tracts$Population, na.rm = TRUE) / 16
 
 
 ### race data ----------------------------------------------------------------------
+
+numbers <- c(1:60) %>% stringr::str_pad(width = 2, side = "left", pad = "0")
+
+for(output_number in numbers){
+  
+  ## Output Data
+  # The output CSV file from the random districts tracts 2010 script
+  output <- read.csv(paste0(input_folder,"/output",output_number,".csv"),
+                     colClass = "character") %>%
+    dplyr::select(Geography, district)
+
 districts_race_data <- dplyr::full_join(output, pop_tracts, by = "Geography") %>%
   dplyr::mutate(District = factor(district,
                                   levels = c(1:16, "Ohio Total"))) %>%
@@ -101,11 +166,12 @@ districts_race_data <- dplyr::full_join(output, pop_tracts, by = "Geography") %>
     Population = sum(Population, na.rm = TRUE),
     `White %` = 100 * sum(White, na.rm = TRUE) / Population,
     `Black %` = 100 * sum(Black, na.rm = TRUE) / Population,
+    `Hispanic %` = 100 * sum(Hispanic, na.rm = TRUE) / Population,
     `Asian %` = 100 * sum(Asian, na.rm = TRUE) / Population,
     `NHPI %` = 100 * sum(NHPI, na.rm = TRUE) / Population,
     `AIAN %` = 100 * sum(AIAN, na.rm = TRUE) / Population,
-    `Two or More Races %` = 100 * sum(`Two or More Races`, na.rm = TRUE) / Population,
     `Other %` = 100 * sum(Other, na.rm = TRUE) / Population,
+    `Two or More Races %` = 100 * sum(`Two or More Races`, na.rm = TRUE) / Population,
     `Non-White %` = 100 - `White %`,
   ) %>%
   dplyr::ungroup() %>%
@@ -115,38 +181,18 @@ districts_race_data <- dplyr::full_join(output, pop_tracts, by = "Geography") %>
     Population = sum(pop_tracts$Population, na.rm = TRUE),
     `White %` = 100 * sum(pop_tracts$White, na.rm = TRUE) / sum(pop_tracts$Population, na.rm = TRUE),
     `Black %` = 100 * sum(pop_tracts$Black, na.rm = TRUE) / sum(pop_tracts$Population, na.rm = TRUE),
+    `Hispanic %` = 100 * sum(pop_tracts$Hispanic, na.rm = TRUE) / sum(pop_tracts$Population, na.rm = TRUE),
     `Asian %` = 100 * sum(pop_tracts$Asian, na.rm = TRUE) / sum(pop_tracts$Population, na.rm = TRUE),
     `NHPI %` = 100 * sum(pop_tracts$NHPI, na.rm = TRUE) / sum(pop_tracts$Population, na.rm = TRUE),
     `AIAN %` = 100 * sum(pop_tracts$AIAN, na.rm = TRUE) / sum(pop_tracts$Population, na.rm = TRUE),
-    `Two or More Races %` = 100 * sum(pop_tracts$`Two or More Races`, na.rm = TRUE) / sum(pop_tracts$Population, na.rm = TRUE),
     `Other %` = 100 * sum(pop_tracts$Other, na.rm = TRUE) / sum(pop_tracts$Population, na.rm = TRUE),
+    `Two or More Races %` = 100 * sum(pop_tracts$`Two or More Races`, na.rm = TRUE) / sum(pop_tracts$Population, na.rm = TRUE),
     `Non-White %` = 100 - `White %`
   ) %>%
-  # add Race Score, where % white - % non-white is classified based on:
-  # < 0 (majority-minority) - 0
-  # [0, 45) - 1
-  # [45, 60) - 2
-  # [60, 70) - 3
-  # [70, 85) - 4
-  # > 85 - 5
   dplyr::mutate(
-    `White % Minus Non-White %` = `White %` - `Non-White %`,
-    `Race Score` = dplyr::case_when(
-      `White % Minus Non-White %` < 0 ~ 0,
-      `White % Minus Non-White %` >= 0 &
-        `White % Minus Non-White %` < 45 ~ 1,
-      `White % Minus Non-White %` >= 45 &
-        `White % Minus Non-White %` < 60 ~ 2,
-      `White % Minus Non-White %` >= 60 &
-        `White % Minus Non-White %` < 70 ~ 3,
-      `White % Minus Non-White %` >= 70 &
-        `White % Minus Non-White %` < 85 ~ 4,
-      `White % Minus Non-White %` >= 85 ~ 5,
-      .default = NA
-      ),
-    `Diversity Index` = 1 - ((`White %` / 100)^2 + (`Black %` / 100)^2 + (`Asian %` / 100)^2 +
-      (`NHPI %` / 100)^2 +(`AIAN %` / 100)^2 + (`Two or More Races %` / 100)^2 +
-      (`Other %` / 100)^2),
+    `White Minus Nonwhite` = `White %` - `Non-White %`,
+    `Diversity Index` = 1 - ((`White %` / 100)^2 + (`Black %` / 100)^2 + (`Hispanic %` / 100)^2 + (`Asian %` / 100)^2 +
+      (`NHPI %` / 100)^2 +(`AIAN %` / 100)^2 + (`Other %` / 100)^2) + (`Two or More Races %` / 100)^2,
     # for districts without missing data, calculate population relative to
     # target population ratio
     `Population Target Ratio` = dplyr::case_when(
@@ -161,3 +207,5 @@ write.csv(districts_race_data,
           paste0(output_folder,"/race_tracts",output_number,".csv"),
           row.names = FALSE
           )
+
+}
