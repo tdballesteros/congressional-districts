@@ -1,0 +1,788 @@
+---
+title: "Results"
+author: "Tim Ballesteros"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+```{r initialization, include=FALSE}
+
+# 'not in' function
+'%!in%' <- function(x,y)!('%in%'(x,y))
+
+### load libraries ---------------------------------------------------------------------------------
+library(readxl)
+library(tibble)
+library(hextri)
+library(beeswarm)
+library(ggbeeswarm)
+library(waffle)
+library(tidyverse)
+
+### load data --------------------------------------------------------------------------------------
+### miscellaneous ----------------------------------------------------------------------------------
+
+## County FIPS code to name crosswalk
+county_fips_xwalk <- read.csv("Data/ohio_county_fips_crosswalk.csv") %>%
+  dplyr::mutate(
+    fips = stringr::str_pad(fips, width = 3, side = "left", pad = "0"),
+    county = paste0(county, " County"))
+
+# actual 2020 election results
+results <- readxl::read_xlsx("Data/ohio_2020_congressional_election_results_by_district.xlsx")
+
+# actual 2020 state-wide presidential election results
+presidential_results <- data.frame(
+  Party = c("Republican", "Democrat", "Libertarian", "Green", "Write-Ins"),
+  Votes = c(3154834, 2679165, 67569, 18812, 1822)
+  )
+
+
+### demographic data ----------------------------------------------------------------------------------
+
+## Demographic Data (2010) - Tracts
+# Source: US Census Bureau
+population_data <- read.csv(
+  "Data/DECENNIALSF12010.P9.csv",
+  colClasses = "character"
+)
+
+## Demographic Data (2010) - 113th Congressional Districts
+# Source: US Census Bureau
+congress_pop_data_113 <- read.csv(
+  "Data/DECENNIALCD1132010.P9.csv"
+)
+
+## Demographic Data (2010) - 115th Congressional Districts
+# Source: US Census Bureau
+congress_pop_data_115 <- read.csv(
+  "Data/DECENNIALCD1152010.P9.csv"
+)
+
+## Demographic Output Data
+# file path to the folder containing the data
+data_folder_path <- "Tracts 2010 (alg2)/99_Export Data/Districts by Race v2"
+# list all the files within the folder
+data_folder_list <- list.files(data_folder_path, full.names = TRUE) %>%
+  sort()
+# load all files into a single object
+race_data <- lapply(data_folder_list, read.csv)
+
+
+### partisan data ----------------------------------------------------------------------------------
+
+## Voting Data
+# Source: Redistricting Data Hub (RDH)
+# Source Website: https://redistrictingdatahub.org/state/ohio/
+voting_data <- read.csv(
+  "Data/ohio_2020_election_data_by_block.csv",
+  colClasses = "character"
+  )
+
+## Partisanship Output Data
+# file path to the folder containing the data
+data_folder_path <- "Tracts 2010 (alg2)/99_Export Data/Districts by Partisanship v2"
+# list all the files within the folder
+data_folder_list <- list.files(data_folder_path, full.names = TRUE) %>%
+  sort()
+# load all files into a single object
+partisanship_data <- lapply(data_folder_list, read.csv)
+
+
+### compactness data ----------------------------------------------------------------------------------
+
+# source("~/R/Congressional Districts/Tracts 2010 (alg2)/06_compactness_data by_actual_districts.R",
+#        echo=FALSE)
+
+# load actual congressional district compactness data
+compactness_data_actual <- read.csv("Tracts 2010 (alg2)/99_Export Data/compactness_official_districts.csv")
+
+## Compactness Output Data
+# file path to the folder containing the data
+data_folder_path <- "Tracts 2010 (alg2)/99_Export Data/Districts by Compactness v2"
+# list all the files within the folder
+data_folder_list <- list.files(data_folder_path, full.names = TRUE) %>%
+  sort()
+# load all files into a single object
+compactness_data <- lapply(data_folder_list, read.csv)
+
+
+### shapefiles ----------------------------------------------------------------------------------
+
+## Ohio Tract TIGER/Line Shapefiles (2010)
+# Source: US Census Bureau
+shape_tract <- sf::read_sf(
+  dsn = "Data/tl_2010_39_tract10/tl_2010_39_tract10.shp") %>%
+  dplyr::rename_with(tolower) %>%
+  dplyr::rename(Geography = geoid10) %>%
+  dplyr::filter(Geography %!in% c("39095990000", "39043990100", "39093990200",
+                                  "39035990000", "39085990000", "39007990000"))
+
+
+
+
+
+
+
+
+
+
+
+## This document imports results data from the analysis scripts and provides descriptions of the findings.
+
+# source("~/R/Congressional Districts/Tracts 2010 (alg2)/07_race_analysis.R", echo = FALSE)
+# source("~/R/Congressional Districts/Tracts 2010 (alg2)/08_partisanship_analysis.R", echo = FALSE)
+
+```
+
+```{r format_data, include=FALSE}
+
+### Demographic Data (2010) - Tracts ---------------------------------------------------------------
+population_data <- population_data %>%
+  dplyr::mutate(`Label..Grouping.` = trimws(`Label..Grouping.`, which = "both", whitespace = "[ \\t\\r\\n\\h]")) %>%
+  dplyr::filter(`Label..Grouping.` %in% c(
+    "Total:",
+    "Hispanic or Latino",
+    "White alone",
+    "Black or African American alone",
+    "American Indian and Alaska Native alone",
+    "Asian alone",
+    "Native Hawaiian and Other Pacific Islander alone",
+    "Some Other Race alone",
+    "Two or More Races:"
+  )) %>%
+  dplyr::mutate(Race = dplyr::case_match(
+    `Label..Grouping.`,
+    "Total:" ~ "Population",
+    "Hispanic or Latino" ~ "Hispanic",
+    "White alone" ~ "White",
+    "Black or African American alone" ~ "Black",
+    "American Indian and Alaska Native alone" ~ "AIAN",
+    "Asian alone" ~ "Asian",
+    "Native Hawaiian and Other Pacific Islander alone" ~ "NHPI",
+    "Some Other Race alone" ~ "Other",
+    "Two or More Races:" ~ "Two or More Races"
+  ), .before = 1) %>%
+  dplyr::select(-`Label..Grouping.`) %>%
+  tidyr::pivot_longer(2:2953, names_to = "Tract", values_to = "Population") %>%
+  dplyr::mutate(
+    # total populations for these tracts have additional alphanumeric characters
+    Population = dplyr::case_when(
+      Tract %in% c("Census.Tract.1188..Cuyahoga.County..Ohio",
+                   "Census.Tract.1413..Cuyahoga.County..Ohio",
+                   "Census.Tract.1871.05..Cuyahoga.County..Ohio",
+                   "Census.Tract.1871.06..Cuyahoga.County..Ohio",
+                   "Census.Tract.1959..Cuyahoga.County..Ohio",
+                   "Census.Tract.3102..Geauga.County..Ohio",
+                   "Census.Tract.3106..Geauga.County..Ohio",
+                   "Census.Tract.3108..Geauga.County..Ohio",
+                   "Census.Tract.3109..Geauga.County..Ohio",
+                   "Census.Tract.3110..Geauga.County..Ohio",
+                   "Census.Tract.3113..Geauga.County..Ohio",
+                   "Census.Tract.3114..Geauga.County..Ohio",
+                   "Census.Tract.3116..Geauga.County..Ohio",
+                   "Census.Tract.3117..Geauga.County..Ohio",
+                   "Census.Tract.3118..Geauga.County..Ohio",
+                   "Census.Tract.3121..Geauga.County..Ohio",
+                   "Census.Tract.3122.02..Geauga.County..Ohio",
+                   "Census.Tract.3123..Geauga.County..Ohio",
+                   "Census.Tract.3124..Geauga.County..Ohio",
+                   "Census.Tract.2064..Lake.County..Ohio",
+                   "Census.Tract.9305..Trumbull.County..Ohio"
+      ) & Race == "Population" ~ stringr::str_sub(Population, 1, 5),
+      .default = Population
+    ),
+    Population = stringr::str_replace_all(Population, "\\,", ""),
+    Population = as.numeric(Population),
+    county_name = stringr::str_sub(Tract, 16, -6),
+    county_name = stringr::str_replace_all(county_name, c("[0-9]" = "", "\\." = " ")),
+    county_name = trimws(county_name, which = "both", whitespace = "[ \\t\\r\\n\\h]"),
+    tract = stringr::str_sub(Tract, 14, 20),
+    tract = stringr::str_replace_all(tract, "[A-Za-z]", ""),
+    # repeated to remove sets of double periods
+    tract = stringr::str_replace_all(tract, "\\.$|\\.\\.$", ""),
+    # tract = stringr::str_replace_all(tract, "\\.$", ""),
+    tract4 = stringr::str_pad(stringr::str_extract(tract, "^([^.]+)"),
+                              width = 4,
+                              side = "left",
+                              pad = "0"),
+    tract2 = stringr::str_pad(stringr::str_extract(tract, "(?<=\\.)[^.]+$"),
+                              width = 2,
+                              side = "left",
+                              pad = "0"),
+    tract2 = ifelse(is.na(tract2),"00",tract2),
+    tract_formatted = paste0(tract4, tract2)
+  ) %>%
+  dplyr::left_join(county_fips_xwalk, dplyr::join_by("county_name" == "county")) %>%
+  dplyr::mutate(
+    Geography = paste0("39",fips,tract_formatted)
+  ) %>%
+  dplyr::select(Geography, Race, Population) %>%
+  tidyr::pivot_wider(names_from = "Race", values_from = "Population") %>%
+  # reorder columns
+  dplyr::select(Geography, Population, White, Black, Hispanic, Asian, NHPI, AIAN, Other, `Two or More Races`)
+
+
+
+### Demographic Data (2010) - 113th Congressional Districts ----------------------------------------
+census_data_113th <- congress_pop_data_113 %>%
+  dplyr::mutate(`Label..Grouping.` = trimws(`Label..Grouping.`, which = "both", whitespace = "[ \\t\\r\\n\\h]")) %>%
+  dplyr::filter(`Label..Grouping.` %in% c(
+    "Total:",
+    "Hispanic or Latino",
+    "White alone",
+    "Black or African American alone",
+    "American Indian and Alaska Native alone",
+    "Asian alone",
+    "Native Hawaiian and Other Pacific Islander alone",
+    "Some Other Race alone",
+    "Two or More Races:"
+  )) %>%
+  dplyr::mutate(Race = dplyr::case_match(
+    `Label..Grouping.`,
+    "Total:" ~ "Population",
+    "Hispanic or Latino" ~ "Hispanic",
+    "White alone" ~ "White",
+    "Black or African American alone" ~ "Black",
+    "American Indian and Alaska Native alone" ~ "AIAN",
+    "Asian alone" ~ "Asian",
+    "Native Hawaiian and Other Pacific Islander alone" ~ "NHPI",
+    "Some Other Race alone" ~ "Other",
+    "Two or More Races:" ~ "Two or More Races"
+  ), .before = 1) %>%
+  dplyr::select(-`Label..Grouping.`) %>%
+  tidyr::pivot_longer(2:17, names_to = "District", values_to = "Population") %>%
+  dplyr::mutate(
+    Population = stringr::str_replace_all(Population, "\\,", ""),
+    Population = as.numeric(Population),
+    District = stringr::str_sub(District, 24, 25),
+    District = stringr::str_replace_all(District, "\\.", ""),
+    District = factor(District, levels = c(1:16))
+  ) %>%
+  tidyr::pivot_wider(names_from = "Race", values_from = "Population") %>%
+  # reorder columns
+  dplyr::select(District, Population, White, Black, Hispanic, Asian, NHPI, AIAN, Other, `Two or More Races`) %>%
+  # add additional calculations
+  dplyr::mutate(
+    `White %` = 100 * White / Population,
+    `Black %` = 100 * Black / Population,
+    `Hispanic %` = 100 * Hispanic / Population,
+    `Asian %` = 100 * Asian / Population,
+    `NHPI %` = 100 * NHPI / Population,
+    `AIAN %` = 100 * AIAN / Population,
+    `Other %` = 100 * Other / Population,
+    `Two or More Races %` = 100 * `Two or More Races` / Population,
+    `Non-White %` = 100 - `White %`,
+    `White Minus Non-White %` = `White %` - `Non-White %`,
+    `Diversity Index` = 1 - ((`White %` / 100)^2 + (`Black %` / 100)^2 + (`Hispanic %` / 100)^2 + (`Asian %` / 100)^2 +
+                               (`NHPI %` / 100)^2 +(`AIAN %` / 100)^2 + (`Other %` / 100)^2) + (`Two or More Races %` / 100)^2,
+    `Population Target Ratio` = 100 * Population / (sum(Population, na.rm = TRUE) / 16)
+  )
+
+
+### Demographic Data (2010) - 115th Congressional Districts ----------------------------------------
+census_data_115th <- congress_pop_data_115 %>%
+  dplyr::mutate(`Label..Grouping.` = trimws(`Label..Grouping.`, which = "both", whitespace = "[ \\t\\r\\n\\h]")) %>%
+  dplyr::filter(`Label..Grouping.` %in% c(
+    "Total:",
+    "Hispanic or Latino",
+    "White alone",
+    "Black or African American alone",
+    "American Indian and Alaska Native alone",
+    "Asian alone",
+    "Native Hawaiian and Other Pacific Islander alone",
+    "Some Other Race alone",
+    "Two or More Races:"
+  )) %>%
+  dplyr::mutate(Race = dplyr::case_match(
+    `Label..Grouping.`,
+    "Total:" ~ "Population",
+    "Hispanic or Latino" ~ "Hispanic",
+    "White alone" ~ "White",
+    "Black or African American alone" ~ "Black",
+    "American Indian and Alaska Native alone" ~ "AIAN",
+    "Asian alone" ~ "Asian",
+    "Native Hawaiian and Other Pacific Islander alone" ~ "NHPI",
+    "Some Other Race alone" ~ "Other",
+    "Two or More Races:" ~ "Two or More Races"
+  ), .before = 1) %>%
+  dplyr::select(-`Label..Grouping.`) %>%
+  tidyr::pivot_longer(2:17, names_to = "District", values_to = "Population") %>%
+  dplyr::mutate(
+    Population = stringr::str_replace_all(Population, "\\,", ""),
+    Population = as.numeric(Population),
+    District = stringr::str_sub(District, 24, 25),
+    District = stringr::str_replace_all(District, "\\.", ""),
+    District = factor(District, levels = c(1:16))
+  ) %>%
+  tidyr::pivot_wider(names_from = "Race", values_from = "Population") %>%
+  # reorder columns
+  dplyr::select(District, Population, White, Black, Hispanic, Asian, NHPI, AIAN, Other, `Two or More Races`) %>%
+  # add additional calculations
+  dplyr::mutate(
+    `White %` = 100 * White / Population,
+    `Black %` = 100 * Black / Population,
+    `Hispanic %` = 100 * Hispanic / Population,
+    `Asian %` = 100 * Asian / Population,
+    `NHPI %` = 100 * NHPI / Population,
+    `AIAN %` = 100 * AIAN / Population,
+    `Other %` = 100 * Other / Population,
+    `Two or More Races %` = 100 * `Two or More Races` / Population,
+    `Non-White %` = 100 - `White %`,
+    `White Minus Non-White %` = `White %` - `Non-White %`,
+    `Diversity Index` = 1 - ((`White %` / 100)^2 + (`Black %` / 100)^2 + (`Hispanic %` / 100)^2 + (`Asian %` / 100)^2 +
+                               (`NHPI %` / 100)^2 +(`AIAN %` / 100)^2 + (`Other %` / 100)^2) + (`Two or More Races %` / 100)^2,
+    `Population Target Ratio` = 100 * Population / (sum(Population, na.rm = TRUE) / 16)
+  )
+
+
+### Race Output Data ----------------------------------------
+
+for(l in 1:length(race_data)){
+  names(race_data[[l]]) <- c("District", "Population", "White %", "Black %", "Hispanic %", "Asian %", "NHPI %",
+                             "AIAN %", "Other %", "Two or More Races %", "Non-White %", "White Minus Non-White %",
+                             "Diversity Index", "Population Target Ratio")
+}
+
+```
+
+<!--
+## Introduction
+
+## Literature Review
+
+## Methodology
+
+To test whether an algorithm randomly constructing congressional districts within the typical confines - contiguous, equal populations - I use Ohio as an example. Using the post-2010 United States Census redistricting, population data from 2010 is used in conjunction with Ohio's 2020 election results, which use districts based on the 2010 Census.
+
+## Findings
+
+### Partisanship
+
+To create an objective comparison for a partisanly "fair" Ohio map should look like, I calculated the estimated number of seats that would be created based on state-wide presidential election results and congressional results. Each measurement has strengths and weaknesses. The presidential candidates are the same across the entire state, while congressional race results measures election results based on 24 main-party (Democrat and Republican) candidates, two per district. Using congressional election results, however, is theoretically closer to the voting patterns were the state to use state-wide single-member proportional representation, as the congressional races would be more localized than the national presidential race. Recent years, however, have shown increasing nationalization of congressional races.
+
+Using the Sainte-Lague formula for calculating multi-member district proportional representation, the 2020 Ohio election results give an expected seat allocation of `r sum(presidential_results_sainte_lague == 1)` seats to Republicans and `r sum(presidential_results_sainte_lague == 2)` seats to Democrats based on presidential election results, and `r sum(congressional_results_sainte_lague == 1)` seats to Republicans and `r sum(congressional_results_sainte_lague == 2)` seats to Democrats based on congressional election results. The actual seat allocation of Ohio's 16 congressional seats in 2020 was 12 Republican-elected districts and 4 Democrat-elected districts.
+
+Based on `r nrow(winners_rep)` procedurally generated congressional maps of Ohio's 16 seats using 2010 Census data, the average number of seats won by Republicans was `r round(median(winners_rep$Value))` and won by Democrats was `r round(median(winners_dem$Value))`. Table XX shows the frequency of number of seats won by party.
+
+```{r winner_frequency, include=FALSE}
+# 
+# winners_by_run <- winners_by_run %>%
+#   tidyr::pivot_longer(2:3, names_to = "Party", values_to = "Seats") %>%
+#   dplyr::mutate(Party = factor(Party, levels = c("Republican", "Democrat")))
+
+```
+
+```{r winner_frequency_plot, echo=FALSE, warning=FALSE}
+# 
+# ggplot2::ggplot() +
+#   ggplot2::geom_histogram(data = winners_by_run,
+#                             ggplot2::aes(x = Seats, fill = Party),
+#                           binwidth = 0.5) +
+#   ggplot2::scale_fill_manual(values = c("red", "blue"), label = c("Republican", "Democrat")) +
+#   # 2020 actual results
+#   ggplot2::geom_vline(ggplot2::aes(xintercept = c(4, 12), color = "black"), linetype = "dotdash") +
+#   ggplot2::geom_vline(ggplot2::aes(xintercept = c(7, 9), color = "darkgray"), linetype = "dotdash") +
+#   ggplot2::scale_color_manual(values = c("black","darkgray"), label = c("2020 Actual","2020 PR Expected")) +
+#   ggplot2::labs(
+#     title = "TABLE XX. Number of Districts Won by Party",
+#     subtitle = "By District Map versus 2020 results",
+#     x = "Number of Districts Won by Party",
+#     y = "Frequency",
+#     caption = "Sources: Redistricting Data Hub (RDH), 2020 results"
+#   ) +
+#   ggplot2::xlim(1, 16) +
+#   ggplot2::theme_light()
+
+```
+
+The random algorithm on average produced a seat distribution of 11 Republican to 5 Democrat seats, which is closer to the expected proportional representation than the actual results.
+
+### Population
+
+```{r population_general, include=FALSE}
+
+
+#### pull metrics by run ----------------------------------------------------------------------
+white_minus_nonwhite_values <- list()
+diversity_index_values <- list()
+population_target_ratio_values <- list()
+
+for(l in 1:length(race_data)){
+  
+  tmp <- race_data[[l]] %>%
+    dplyr::filter(District != "Ohio Total")
+  
+  white_minus_nonwhite_values[[l]] <- tmp$`White Minus Non-White %`
+  diversity_index_values[[l]] <- tmp$`Diversity Index`
+  population_target_ratio_values[[l]] <- tmp$`Population Target Ratio`
+  
+}
+
+
+#### map race data and one output district ----------------------------------------------------------------------
+
+# ## Format Output Data
+# output <- race_data[[output_number]]
+# 
+# # format output data as a shapefile
+# output_shapefile <- shape_tract_v2 %>%
+#   dplyr::left_join(output, by = "Geography") %>%
+#   sf::st_as_sf()
+# 
+# for(a in c(1:16)){
+# 
+#   tmp <- output_shapefile %>%
+#     dplyr::filter(district == a) %>%
+#     sf::st_union() %>%
+#     sf::st_as_sf() %>%
+#     dplyr::mutate(district = a, .before = 1) %>%
+#     dplyr::rename(geometry = 2)
+# 
+#   assign(paste0("district_shape_",a),tmp)
+# 
+# }
+# 
+# output_shapefile <- mget(ls(pattern="district_shape_")) %>%
+#   bind_rows() %>%
+#   dplyr::mutate(district = factor(district, c(1:16)))
+# 
+# rm(list=ls(pattern="^district_shape_"))
+# 
+# # retrieve coordinate reference system
+# # st_crs(output_shapefile)
+# 
+# 
+# 
+# # create map
+# map <- ggplot2::ggplot() +
+#   ggplot2::geom_sf(data = population_data,
+#                    ggplot2::aes(fill = `Non-White Percentage`), lwd = 0) +
+#   ggplot2::scale_fill_distiller(palette = "YlOrRd") +
+#   ggplot2::geom_sf(data = output_shapefile, fill = NA, color = "#000000")
+# 
+# map
+# 
+# 
+# mapview(population_data, zcol = "Non-White Perc")
+
+
+### analyze data ----------------------------------------------------------------------
+
+# White % - Non-White % summary values by map
+white_minus_nonwhite_values_mean <- lapply(white_minus_nonwhite_values, mean) %>% unlist()
+white_minus_nonwhite_values_median <- lapply(white_minus_nonwhite_values, median) %>% unlist()
+white_minus_nonwhite_values_min <- lapply(white_minus_nonwhite_values, min) %>% unlist()
+white_minus_nonwhite_values_max <- lapply(white_minus_nonwhite_values, max) %>% unlist()
+
+# Diversity Index summary values by map
+diversity_index_values_mean <- lapply(diversity_index_values, mean) %>% unlist()
+diversity_index_values_median <- lapply(diversity_index_values, median) %>% unlist()
+diversity_index_values_min <- lapply(diversity_index_values, min) %>% unlist()
+diversity_index_values_max <- lapply(diversity_index_values, max) %>% unlist()
+
+# Population Target Ratio summary values by map
+population_target_ratio_values_mean <- lapply(population_target_ratio_values, mean) %>% unlist()
+population_target_ratio_values_median <- lapply(population_target_ratio_values, median) %>% unlist()
+population_target_ratio_values_min <- lapply(population_target_ratio_values, min) %>% unlist()
+population_target_ratio_values_max <- lapply(population_target_ratio_values, max) %>% unlist()
+
+
+
+### white % - non-white % comparison ----------------------------------------------------------------------
+
+ohio_statewide_white_percent <- 100 * sum(population_data$White, na.rm = TRUE) /
+                                        sum(population_data$Population, na.rm = TRUE)
+ohio_statewide_nonwhite_percent <- 100 * (sum(population_data$Population, na.rm = TRUE) -
+                                            sum(population_data$White, na.rm = TRUE)) /
+                                            sum(population_data$Population, na.rm = TRUE)
+
+ohio_white_minus_nonwhite <- ohio_statewide_white_percent - ohio_statewide_nonwhite_percent
+# 62.25475
+
+white_minus_nonwhite_df <- data.frame(
+  run = c(1:length(white_minus_nonwhite_values_median)),
+  Median = white_minus_nonwhite_values_median,
+  Minimum = white_minus_nonwhite_values_min,
+  Maximum = white_minus_nonwhite_values_max,
+  # group color = 1 is for runs, color = 2 is for 113th congress actuals
+  Group = "Runs"
+) %>%
+  tibble::add_row(
+    run = NA,
+    Median = median(census_data_113th$`White Minus Non-White %`, na.rm = TRUE),
+    Minimum = min(census_data_113th$`White Minus Non-White %`, na.rm = TRUE),
+    Maximum = max(census_data_113th$`White Minus Non-White %`, na.rm = TRUE),
+    Group = "Actual"
+  ) %>%
+  tidyr::pivot_longer(2:4, names_to = "variable", values_to = "value") %>%
+  dplyr::mutate(
+    variable = factor(
+      variable,
+      levels = c("Median", "Minimum", "Maximum")
+    ),
+    Group = factor(
+      Group,
+      levels = c("Runs", "Actual")
+    ))
+
+ggplot2::ggplot() +
+  ggbeeswarm::geom_beeswarm(data = white_minus_nonwhite_df,
+                            ggplot2::aes(x = variable, y = value, color = Group)) +
+  ggplot2::scale_color_manual(values = c("black", "red", "black")) +
+  ggplot2::geom_hline(ggplot2::aes(yintercept = ohio_white_minus_nonwhite, color = "Ohio Avg."), linetype = "dotdash")  +
+  ggplot2::labs(
+    title = "White % Minus Non-White % Summary Values",
+    subtitle = "Run Averages versus 112th Congress",
+    x = "Summary Value by Run",
+    y = "Percentage Value",
+    caption = "Sources: US Census Bureau, 2010 Census;\nAmerican Community Survey (ACS), 2012\nNote: Ethnicity data not included"
+  ) +
+  ggplot2::theme_light()
+
+
+# beeswarm of all districts - white % minus non-white %
+white_minus_nonwhite_all_df <- data.frame(Group = "Runs",
+                                          value = unlist(white_minus_nonwhite_values)) %>%
+  rbind(data.frame(Group = "Actual",
+                   value = c(census_data_113th$`White Minus Non-White %`))) %>%
+  dplyr::mutate(Group = factor(Group, levels = c("Runs", "Actual")))
+
+ggplot2::ggplot() +
+  ggbeeswarm::geom_beeswarm(data = white_minus_nonwhite_all_df,
+                            ggplot2::aes(x = Group, y = value, color = Group)) +
+  ggplot2::scale_color_manual(values = c("black", "red", "black")) +
+  ggplot2::geom_hline(ggplot2::aes(yintercept = ohio_white_minus_nonwhite, color = "Ohio Avg."), linetype = "dotdash") +
+  ggplot2::labs(
+    title = "White % Minus Non-White % Summary Values",
+    subtitle = "Runs versus 112th Congress",
+    x = "Summary Value",
+    y = "Percentage Value",
+    caption = "Sources: US Census Bureau, 2010 Census;\nAmerican Community Survey (ACS), 2012\nNote: Ethnicity data not included"
+  ) +
+  ggplot2::theme_light()
+
+```
+
+```{r pop_numbers, include=FALSE}
+
+# pretty versions of numbers for use in text
+
+# district target population (rounded)
+target_pop <- prettyNum(round(sum(population_data$Population)/16), big.mark = ",")
+
+# district population legal spread in 2010
+target_pop_spread <- prettyNum(round(0.1*sum(population_data$Population)/16), big.mark = ",")
+  
+
+# 112th Congress population extremes - Census
+congress112_min_value <- prettyNum(round(min(population_113th$Population)), big.mark = ",")
+congress112_max_value <- prettyNum(round(max(population_113th$Population)), big.mark = ",")
+
+congress112_min_perc <- round(100*min(population_113th$`Population Target Ratio`),2)
+congress112_max_perc <- round(100*max(population_113th$`Population Target Ratio`),2)
+
+# number of generated maps
+num_gen_maps <- length(population_target_ratio_values_median)
+
+# generated maps population extremes - Census
+gen_maps_min_value_min <- prettyNum(round((min(population_target_ratio_values_min)/100)*(sum(population_data$Population)/16)), big.mark = ",")
+gen_maps_max_value_max <- prettyNum(round((max(population_target_ratio_values_max)/100)*sum(population_data$Population)/16), big.mark = ",")
+
+gen_maps_min_perc_min <- round(min(population_target_ratio_values_min),2)
+gen_maps_max_perc_max <- round(max(population_target_ratio_values_max),2)
+
+gen_maps_min_value_median <- prettyNum(round((median(population_target_ratio_values_min)/100)*(sum(population_data$Population)/16)), big.mark = ",")
+gen_maps_max_value_median <- prettyNum(round((median(population_target_ratio_values_max)/100)*sum(population_data$Population)/16), big.mark = ",")
+
+gen_maps_min_perc_median <- round(median(population_target_ratio_values_min),2)
+gen_maps_max_perc_median <- round(median(population_target_ratio_values_max),2)
+
+```
+
+Congressional districts within each state are required to have equal populations, though the degree of their margin of error varies by state. Ultimately, districts will have small deviations above or below the target amount due to compiling geographic units of various populations. Ohio's Constitution, as updated in 2021, stipulates that "[i]n no event shall any district contain a population of less than ninety-five per cent nor more than one hundred five per cent of the applicable ratio of representation" (Article XI, Section 3(B)(1)).^[Ohio Constitution Article XI, Section 3: https://codes.ohio.gov/ohio-constitution/section-11.3] This allows districts to have a population range of 10% of the target district population, which based on the 2010 Census would be `r target_pop_spread` individuals.
+
+For Ohio's redrawing following the 2010 Census, each district was expected to have approximately `r target_pop` individuals across its now 16 congressional districts. Using the same Census data, Ohio's districts in the 113th Congress ranged from `r congress112_min_value` individuals (`r congress112_min_perc`% of the target population) to `r congress112_max_value` individuals (`r congress112_max_perc`%).
+
+```{r target_population, echo=FALSE}
+
+target_pop_df <- data.frame(
+  run = c(1:length(population_target_ratio_values_min)),
+  Minimum = population_target_ratio_values_min,
+  Maximum = population_target_ratio_values_max,
+  Group = "Runs"
+  ) %>%
+  tibble::add_row(
+    run = NA,
+    Minimum = 100*min(census_data_113th$`Population Target Ratio`),
+    Maximum = 100*max(census_data_113th$`Population Target Ratio`),
+    Group = "Actual"
+  ) %>%
+  tidyr::pivot_longer(2:3, names_to = "variable", values_to = "value") %>%
+  dplyr::mutate(
+    Group = factor(Group, levels = c("Runs", "Actual")),
+    variable = factor(variable, levels = c("Minimum", "Maximum"))
+    )
+
+ggplot2::ggplot() +
+  ggbeeswarm::geom_beeswarm(data = target_pop_df,
+                            ggplot2::aes(x = variable, y = value, color = Group)) +
+  ggplot2::scale_color_manual(values = c("black", "red", "black")) +
+  ggplot2::geom_hline(ggplot2::aes(yintercept = c(95,105), color = "Legal Limits"), linetype = "dotdash")  +
+  ggplot2::labs(
+    title = "TABLE XX. Target Population Summary Values",
+    subtitle = "Runs versus 112th Congress",
+    x = "Summary Value by Run",
+    y = "Percentage of District Target Population",
+    caption = "Sources: US Census Bureau, 2010 Census"
+  ) +
+  ggplot2::theme_light() +
+  ggplot2::theme(
+    axis.ticks.x = element_blank()
+    ) +
+  # ggplot2::scale_y_continuous(breaks = c(94:106))
+  ggplot2::scale_y_continuous(
+    breaks = c(94:106),
+    labels=c(paste0(c(94:106),"%")),
+    minor_breaks = NULL
+    )
+
+```
+
+Across the `r num_gen_maps` generated maps, the districts created with the largest deviations above and below the target population value were `r gen_maps_min_value_min` (`r gen_maps_min_perc_min`%) and `r gen_maps_max_value_max` (`r gen_maps_max_perc_max`%), respectively. All district populations fell within ±1% of the target population. On average, the median minimum and maximum district population values across the `r num_gen_maps` generated maps were `r gen_maps_min_value_median` (`r gen_maps_min_perc_median`%) and `r gen_maps_max_value_median` (`r gen_maps_max_perc_median`%) individuals, respectively.
+
+### Race
+
+```{r race_numbers, include=FALSE}
+
+# state-wide race % - Census
+ohio_white_perc <- sprintf("%.2f", 100 * sum(population_113th$White, na.rm = TRUE) / sum(population_113th$Population, na.rm = TRUE))
+ohio_black_perc <- sprintf("%.2f", 100 * sum(population_113th$Black, na.rm = TRUE) / sum(population_113th$Population, na.rm = TRUE))
+ohio_asian_perc <- sprintf("%.2f", 100 * sum(population_113th$Asian, na.rm = TRUE) / sum(population_113th$Population, na.rm = TRUE))
+ohio_aian_perc <- sprintf("%.2f", 100 * sum(population_113th$AIAN, na.rm = TRUE) / sum(population_113th$Population, na.rm = TRUE))
+ohio_nhpi_perc <- sprintf("%.2f", 100 * sum(population_113th$NHPI, na.rm = TRUE) / sum(population_113th$Population, na.rm = TRUE))
+ohio_other_perc <- sprintf("%.2f", 100 * sum(population_113th$Other, na.rm = TRUE) / sum(population_113th$Population, na.rm = TRUE))
+ohio_twoormore_perc <- sprintf("%.2f", 100 * sum(population_113th$`Two or More Races`, na.rm = TRUE) / sum(population_113th$Population, na.rm = TRUE))
+
+ohio_nonwhite_perc <- sprintf("%.2f", 100 - (100 * sum(population_113th$White, na.rm = TRUE) / sum(population_113th$Population, na.rm = TRUE)))
+
+# Note: NHPI and AIAN are collapsed into Other due to low counts
+ohio_total_race_props <- c(
+  White = 82.7,
+  Black = 12.24,
+  Asian = 1.74,
+  Other = 0.93,
+  `Two or More` = 2.3
+  ) %>%
+  round(0)
+
+```
+
+States are forbidden from use race or ethnicity to politically disadvantage one or more particular groups. However, several states require the creation of one or more majority-minority districts, that is, a district with a larger proportion of non-White  individuals (Hispanic White individuals included) than White, non-Hispanic individuals. With the strong (though decreasing) correlation between race/ethnicity and voting patterns, separating redistricting based on demographic and partisan characteristics is challenging.
+
+Due to data availability, ethnicity is not included in this analysis. Based on the 2010 Census, Ohio's Hispanic population was 354,674, or 3.1% of the state's population. Out of this, 180,174 individuals, or just over half (50.8%) of Ohio's Hispanic population, identified as White alone, accounting for 1.56% of Ohio's total population. Due to the exclusion of Hispanic data, this analysis's results will show slightly elevated numbers of White individuals and slightly lowered numbers of non-White individuals.
+
+Overall, Ohio's population according to the 2010 Census was `r ohio_white_perc`% White, `r ohio_black_perc`% Black, `r ohio_asian_perc`% Asian, `r ohio_aian_perc`% American Indian or Alaskan Native (AIAN), `r ohio_nhpi_perc`% Native Hawaiian or Pacific Islander (NHPI), `r ohio_other_perc`% other race, and `r ohio_twoormore_perc`% individuals identifying as two or more races. The proportion of non-White individuals in Ohio is `r ohio_nonwhite_perc`%.
+
+```{r ohio_total_pop_waffle, echo=FALSE}
+
+waffle::waffle(
+  ohio_total_race_props,
+  rows = 5,
+  legend_pos = "bottom",
+  title = "Ohio, Population by Race",
+  size = 1
+  )
+  
+```
+
+
+```{r diversity_index, include=FALSE}
+
+
+### diversity index comparison ----------------------------------------------------------------------
+
+ohio_statewide_diversity_index <- population_data %>%
+  dplyr::group_by() %>%
+  dplyr::summarise(across(c(White, Black, AIAN, Asian, NHPI, Other, `Two or More Races`), sum, na.rm = TRUE)) %>%
+  dplyr::ungroup() %>%
+  t() %>%
+  as.data.frame() %>%
+  dplyr::rename(Count = 1) %>%
+  dplyr::mutate(
+    Perc = Count / sum(population_data$Population, na.rm = TRUE),
+    Perc_Squared = Perc^2
+  )
+ohio_diversity_index <- 1 - sum(ohio_statewide_diversity_index$Perc_Squared, na.rm = TRUE)
+# 0.3267474
+  
+diversity_index_df <- data.frame(
+  run = c(1:length(diversity_index_values_median)),
+  Median = diversity_index_values_median,
+  Minimum = diversity_index_values_min,
+  Maximum = diversity_index_values_max,
+  # group color = 1 is for runs, color = 2 is for 113th congress actuals
+  Group = "Runs"
+  ) %>%
+  tibble::add_row(
+    run = NA,
+    Median = median(census_data_113th$`Diversity Index`, na.rm = TRUE),
+    Minimum = min(census_data_113th$`Diversity Index`, na.rm = TRUE),
+    Maximum = max(census_data_113th$`Diversity Index`, na.rm = TRUE),
+    Group = "Actual"
+  ) %>%
+  tidyr::pivot_longer(2:4, names_to = "variable", values_to = "value") %>%
+  dplyr::mutate(
+    variable = factor(
+      variable,
+      levels = c("Median", "Minimum", "Maximum")
+      ),
+    Group = factor(
+      Group,
+      levels = c("Runs", "Actual")
+    ))
+
+ggplot2::ggplot() +
+  ggbeeswarm::geom_beeswarm(data = diversity_index_df,
+                            ggplot2::aes(x = variable, y = value, color = Group)) +
+  ggplot2::scale_color_manual(values = c("black", "red", "blue", "black")) +
+  ggplot2::geom_hline(ggplot2::aes(yintercept = ohio_diversity_index, color = "Ohio Avg."), linetype = "dotdash")  +
+  ggplot2::labs(
+    title = "Diversity Index Summary Values",
+    subtitle = "Run Averages versus 112th Congress",
+    x = "Summary Value by Run",
+    y = "Diversity Index Value",
+    caption = "Sources: US Census Bureau, 2010 Census;\nNote: Ethnicity data not included"
+    ) +
+  ggplot2::theme_light()
+  
+
+```
+
+```{r columbus_race, include=FALSE}
+
+# # pull 112th congress Columbus area boundary
+# columbus_112 <- ohio_112th_shapefile %>%
+#   dplyr::filter(NAMELSAD %in% c("Congressional District 7", "Congressional District 12", "Congressional District 15"))
+# 
+# # create map
+# map <- ggplot2::ggplot() +
+#   # st_crop(xlim = c(82.5, 83.5), ylim = c(39.5, 40.5)) +
+#   ggplot2::geom_sf(data = population_data,
+#                    ggplot2::aes(fill = `Non-White Percentage`), lwd = 0) +
+#   ggplot2::scale_fill_distiller(palette = "YlOrRd") +
+#   ggplot2::geom_sf(data = columbus_112, fill = NA, color = "#000000") +
+#   coord_sf(xlim = c(-82.6, -83.25), ylim = c(39.75, 40.25), expand = FALSE)
+# 
+# 
+# map
+# 
+# 
+# mapview(population_data, zcol = "Non-White Perc")
+
+```
+
+### District Compactness
+
+
+-->
