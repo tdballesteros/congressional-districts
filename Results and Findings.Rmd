@@ -708,12 +708,73 @@ for(l in 1:length(compactness_data)){
                                     "Compactness Reock")
 }
 
+### Actual Results by District ---------------------------------------------------------------------
+results <- results %>%
+  dplyr::mutate(
+    `2Party` = `Republican Votes` + `Democrat Votes`,
+    `Rep % (2P)` = `Republican Votes` / `2Party`,
+    `Dem % (2P)` = `Democrat Votes` / `2Party`,
+    `Relative Win Margin` = `Dem % (2P)` - `Rep % (2P)`,
+    `Absolute Win Margin` = abs(`Relative Win Margin`)
+  )
+
+
+
 ```
 
 ## Introduction
+The United States House of Representatives is composed of 435 voting members, each elected from a single-representative first-past-the-post district. The number of districts a state receives is proportional to its population, with each district within each state and all districts across the country striving to have roughly equal populations.
+
+For a majority of states, the state must split up its territory into two or more congressional districts. District requirements vary by state, but across all states must be contiguous and all districts in the state must have equal populations (of which states differ on acceptable differences). Building off census tracts, an innumerable combination of congressional districts arise even in states like Idaho or Maine, each of which have two congressional districts. Each state sets its own methods for creating district maps; the methods can emphasize certain aspects, such as requirements for majority-minority districts. Overall, however, the main division to emerge in recent decades is between maps drawn by politically-neutral or politically-balanced committees and those drawn by partisan elected officials.
+
+...
+
+Ohio, a state until recently dubbed a bellwhether state for presidential elections, has been one of a handful of states to receive heightened scrutiny for its redistricting practices.^["A Bellwether Refresher: The States Most Likely To Mirror National Election Outcome" by Ron Elving, NPR. https://www.npr.org/2016/11/06/500898858/a-bellwether-refresher-the-states-most-likely-to-mirror-national-election-outcom]
+
+...
 
 ## Methodology
-To test whether an algorithm randomly constructing congressional districts within the typical confines - contiguous, equal populations - I use Ohio as an example. Using the post-2010 United States Census redistricting, population data from 2010 is used in conjunction with Ohio's 2020 election results, which use districts based on the 2010 Census.
+Congressional district maps for Ohio are procedurally generated, using only United States Census total population counts and geographical information (e.g., tract adjacency). Additional demographic information, namely race and ethnicity data, is intentionally excluded from this study. While using this data is legal - indeed, even required - in some states to ensure majority-minority district requirements are fulfilled, one of my goals is to assess whether the created districts show notable bias against particular groups. Without the inclusion of race and ethnicity, is there potential for an algorithmic approach to district creation to dilute non-white non-Hispanic groups' electoral power? Ohio has only limited ability to test this, with the state being overwhelmingly white, non-Hispanic. Substantial concentrations of other groups, particularly Black, non-Hispanic communities, exist in and around several large cities such as Cleveland, Akron, and Columbus. However, in the case of Ohio, this largely amounts to testing whether and how an algorithm might break up urban areas.
+
+During the 2020 election, Ohio had 16 congressional seats. Leveraging this count as a power of two, my algorithm splits an area into two areas with equal populations; recursively executing this process results in 16 districts. The following steps are conducted to split a geography in two:
+
+1. Filter out the six unpopulated census tracts containing only water in Lake Erie. Filter out enclave census tract(s) from the data and merge their populations with the surrounding census tract. This ensures the enclave tract will always be in the same district as the surrounding tract.
+2. Randomly select two census tracts ($tract_{1}$ and $tract_{2}$) from the population of tracts.
+3. For each census tract in the population, calculate the distance (the minimum number of tracts needed to cross to reach one tract from another) to both random tracts $tract_{1}$ and $tract_{2}$ ($dist_{1}$ and $dist_{2}$).
+4. Calculate the relative distance from each census tract to $tract_{1}$ and $tract_{2}$, defined as the difference of distances $dist_{r} = dist_{2} - dist_{1}$.
+5. Identify the most extreme relative distances (i.e., the highest and lowest $dist_{r}$): $d_{-}$ and $d_{+}$. Identify all census tracts with these respective values, where $\mathbf A$ is the group of tracts with $dist_{r} == d_{-}$ and $\mathbf B$ is the group where $dist_{r} == d_{+}$. For each group, assess whether the group contains only one tract. If the group contains multiple tracts, assess whether all tracts are contiguous. If the tracts are discontiguous, determine the group with the largest count of contiguous tracts and remove all other tracts from the group.
+6. Calculate the populations of $\mathbf A$ and $\mathbf B$. Additionally, calculate the target population for the districts, defined as $\frac{\sum x}{2} - \hat{x}$, where $x$ is the census tract population and $\hat{x}$ is the median tract population. As the cutoff population is calculated after a census tract's population is added, this factors in the addition of the population causing the district to exceed the population cutoff value. The population target will vary depending on the composition of the tract population. In the inital step of dividing Ohio into two districts, the population target is 49.968%.
+7. Expand $\mathbf A$ and $\mathbf B$ by incorporating adjacent census tracts with values of $d_{-}+1$ and $d_{+}-1$, respectively.
+8. Repeat this process, recalculating adjacent census tracts and the populations of $\mathbf A$ and $\mathbf B$ after each step, until the population of either $\mathbf A$ or $\mathbf B$ surpasses the target population.
+9. Assign all census tracts in the population not assigned to $\mathbf A$ or $\mathbf B$ to the set with the smaller population.
+10. Calculate continuity of $\mathbf A$ and $\mathbf B$. Reassign any tracts disconnected from the contiguous group with the largest count of districts to the other set $\mathbf B$ or $\mathbf A$.
+11. While the populations of $\mathbf A$ or $\mathbf B$ are less than the population goal, reassign census tracts from the smaller district $\mathbf X$ that border the largest district $\mathbf Y$ starting with those with the largest percentage of adjacent tracts belonging to $\mathbf Y$.
+11. Iterate through the previous two steps until both $\mathbf A$ and $\mathbf B$ are contiguous and have populations above the population target.
+12. Reincorporate enclave census tracts by assigning them the district of the surrounding tract.
+
+The result will be two districts with roughly even populations between $\frac{\sum x}{2} - \hat{x}$ and $\frac{\sum x}{2} + \hat{x}$. The process is repeated using these new districts as the starting populations of subsequent splits until a total of 16 districts are created. The process through to this result is referred to as a "run" and the resulting assignment of all census tracts into one of 16 districts is called a "map."
+
+Below are visualization of key steps in the above process.
+
+```{r map_row1, echo=FALSE, out.width="45%", out.height="20%", fig.cap=" ", fig.show='hold', fig.align='center'}
+
+knitr::include_graphics(c("methodology_map_step1_edited.png", "methodology_map_step2_3.png"))
+
+```
+
+```{r map_row2, echo=FALSE, out.width="45%", out.height="20%", fig.cap=" ", fig.show='hold', fig.align='center'}
+
+knitr::include_graphics(c("methodology_map_step3.png","methodology_map_step4.png"))
+
+```
+
+
+To test whether an algorithm randomly constructing congressional districts within the typical confines - contiguous, equal populations - I use Ohio as an example. Using the post-2010 United States Census redistricting, population data from 2010 is used in conjunction with Ohio's 2020 election results, which use districts based on the 2010 Census. Results will be compared across four aspects, with multiple specific metrics compared within these aspects:
+
+1. **Partisanship**: Assessing district competitiveness and how many seats each map produces for each candidate compared to the 113th Congress's actual seat allocation and the number of votes each party received state-wide.
+2. **Population**: Verifying whether the maps fulfill equal population requirements and comparing to the 113th Congress's district populations.
+3. **Race/Ethnicity**: Assessing racial and ethnic group distribution across the districts and compared to districts for the 113th Congress's racial and ethnic spread.
+4. **District Compactness**: Utilizing several operationalisations of district compactness.
 
 ## Findings
 ### Partisanship
@@ -737,7 +798,7 @@ for(a in 1:length(partisanship_data)){
 
 winners_by_run_long <- winners_by_run %>%
   tidyr::pivot_longer(2:3, names_to = "Party", values_to = "Seats") %>%
-  dplyr::mutate(Party = factor(Party, levels = c("Republican", "Democrat")))
+  dplyr::mutate(Party = factor(Party, levels = c("Democrat", "Republican")))
 
 winners_dem <- winners_by_run %>%
   tidyr::pivot_longer(2:3, names_to = "Winner", values_to = "Value") %>%
@@ -795,7 +856,7 @@ As a comparison for what a partisanly "fair" district map of Ohio should look li
 
 Despite their theoretical differences, both calculations result in the same allocation of seats based on the 2020 results: `r sum(presidential_results_sainte_lague == 1)` seats for Republicans and `r sum(presidential_results_sainte_lague == 2)` seats for Democrats. Actual results saw 12 Republicans and 4 Democrats winning seats for the 117th United States Congress.
 
-Based on `r nrow(winners_by_run)` procedurally generated congressional maps of Ohio's 16 seats using 2010 Census data, the average number of seats won by Republicans was `r round(median(winners_by_run$Republican))` and won by Democrats was `r round(median(winners_by_run$Democrat))`. Table XX shows the frequency of number of seats won by party.
+Based on `r nrow(winners_by_run)` procedurally generated congressional maps of Ohio's 16 seats using 2010 Census data, the average number of seats won by Republicans was `r round(median(winners_by_run$Republican))` and won by Democrats was `r round(median(winners_by_run$Democrat))`. Table 1 shows the frequency of number of seats won by party.
 
 ```{r winner_frequency_plot, echo=FALSE, warning=FALSE}
 
@@ -803,28 +864,35 @@ ggplot2::ggplot() +
   ggplot2::geom_histogram(data = winners_by_run_long,
                             ggplot2::aes(x = Seats, fill = Party),
                           binwidth = 0.5) +
-  ggplot2::scale_fill_manual(values = c("red", "blue"), label = c("Republican", "Democrat")) +
+  ggplot2::scale_fill_manual(values = c("blue", "red"), label = c("Democrat", "Republican")) +
   # 2020 actual results
-  ggplot2::geom_vline(ggplot2::aes(xintercept = c(4, 12), color = "black"), linetype = "dotdash") +
-  ggplot2::geom_vline(ggplot2::aes(xintercept = c(7, 9), color = "darkgray"), linetype = "dotdash") +
-  ggplot2::scale_color_manual(values = c("black","darkgray"), label = c("2020 Actual","2020 PR Expected")) +
+  ggplot2::geom_vline(ggplot2::aes(xintercept = c(4, 12), color = "black"), linetype = "dashed") +
+  ggplot2::geom_vline(ggplot2::aes(xintercept = c(7, 9), color = "gray40"), linetype = "dotted") +
+  ggplot2::scale_color_manual(values = c("black","gray40"), label = c("2020 Actual","2020 PR Expected")) +
   ggplot2::labs(
-    title = "TABLE XX. Number of Districts Won by Party",
+    title = "TABLE 1. Number of Districts Won by Party",
     subtitle = "By District Map versus 2020 results",
     x = "Number of Districts Won by Party",
     y = "Frequency",
     caption = "Sources: Redistricting Data Hub (RDH), 2020 results"
   ) +
-  ggplot2::xlim(0, 16) +
+  scale_x_continuous(limits = c(0, 16),
+                     breaks = seq(0, 16, 2)) +
+
   ggplot2::theme_light()
 
 ```
 
 The random algorithm on average produced a seat distribution of 11 Republican to 5 Democrat seats, which is closer to the expected proportional representation than the actual results.
 
-[DISTRICT COMPETITIVENESS]
+#### District Competitiveness
+**Absolute Win Margin.** The absolute win margin is calculated as the absolute value of the difference in the two-party percentage, such that the winner being a Democrat or Republican is not factored into the value. This excludes any third-party or write-in votes. $w_{abs} = |\frac{votes_{d}}{votes_{d} + votes_{r}} - \frac{votes_{r}}{votes_{d} + votes_{r}}|$, where $w_{abs}$ is the absolute win margin of a district and $votes_{d}$ and $votes_{r}$ are the count of votes for the Democratic and Republican candidates, respectively. This can be simplified to $w_{abs} = \frac{|votes_{d} - votes_{r}|}{votes_{d} + votes_{r}}$. The values are confined between 0 and 100, with 0 representing an exactly even split of votes between the Democrat and Republican and 100 representing one of the candidate receiving every vote while the other candidate receives none. This value is akin to a Cook Political Score value or other similar district partisan measurements, absent the direction of the political lean.
 
-```{r district_competitiveness_data, include=FALSE}
+Table XX shows summary statistics calculated for each run, with the 113th Congress's results shown in red. For mean and median results, a higher value indicates the average district within that map of 16 districts is more partisan. For minimum results, a higher value indicates the least partisan district (i.e., the most competitive district) is more partisan (less competitive); for maximum results, a lower value indicates the most partisan district (i.e., the "safest" district) is less partisan (more competitive).
+
+Overall, lower values indicate higher electoral competitiveness.
+
+```{r district_competitiveness_absolute, echo=FALSE}
 
 win_margin_absolute_df <- data.frame(
   run = c(1:length(win_margin_absolute_median)),
@@ -835,15 +903,14 @@ win_margin_absolute_df <- data.frame(
   # group color = 1 is for runs, color = 2 is for 113th congress actuals
   Group = "Runs"
   ) %>%
-  # TODO: add actual results
-  # tibble::add_row(
-  #   run = NA,
-  #   Mean = mean(census_data_113th$`Diversity Index`, na.rm = TRUE),
-  #   Median = median(census_data_113th$`Diversity Index`, na.rm = TRUE),
-  #   Minimum = min(census_data_113th$`Diversity Index`, na.rm = TRUE),
-  #   Maximum = max(census_data_113th$`Diversity Index`, na.rm = TRUE),
-  #   Group = "Actual"
-  # ) %>%
+  tibble::add_row(
+    run = NA,
+    Mean = 100 * mean(results$`Absolute Win Margin`, na.rm = TRUE),
+    Median = 100 * median(results$`Absolute Win Margin`, na.rm = TRUE),
+    Minimum = 100 * min(results$`Absolute Win Margin`, na.rm = TRUE),
+    Maximum = 100 * max(results$`Absolute Win Margin`, na.rm = TRUE),
+    Group = "Actual"
+  ) %>%
   tidyr::pivot_longer(2:5, names_to = "variable", values_to = "value") %>%
   dplyr::mutate(
     variable = factor(
@@ -854,38 +921,6 @@ win_margin_absolute_df <- data.frame(
       Group,
       levels = c("Runs", "Actual")
     ))
-
-win_margin_relative_df <- data.frame(
-  run = c(1:length(win_margin_relative_median)),
-  Median = win_margin_relative_median,
-  Minimum = win_margin_relative_min,
-  Maximum = win_margin_relative_max,
-  # group color = 1 is for runs, color = 2 is for 113th congress actuals
-  Group = "Runs"
-  ) %>%
-  # TODO: add actual results
-  # tibble::add_row(
-  #   run = NA,
-  #   Median = median(census_data_113th$`Diversity Index`, na.rm = TRUE),
-  #   Minimum = min(census_data_113th$`Diversity Index`, na.rm = TRUE),
-  #   Maximum = max(census_data_113th$`Diversity Index`, na.rm = TRUE),
-  #   Group = "Actual"
-  # ) %>%
-  tidyr::pivot_longer(2:4, names_to = "variable", values_to = "value") %>%
-  dplyr::mutate(
-    variable = factor(
-      variable,
-      levels = c("Median", "Minimum", "Maximum")
-      ),
-    Group = factor(
-      Group,
-      levels = c("Runs", "Actual")
-    ))
-
-```
-
-
-```{r district_competitiveness_absolute_graph, echo=FALSE}
 
 ggplot2::ggplot() +
   ggbeeswarm::geom_beeswarm(data = win_margin_absolute_df,
@@ -899,12 +934,42 @@ ggplot2::ggplot() +
     y = "Points of Absolute Win Margin",
     caption = "Sources: Redistricting Data Hub (RDH), 2020 results"
     ) +
+  ggplot2::ylim(c(0, 65)) +
   ggplot2::theme_light()
 
 ```
 
+Across all the procedurally generated maps, all show average (both calculated as mean and median) districts as more competitive than the 113th district results. A majority of districts also had more competitive most-competitive districts and all but one map had more competitive least-competitive districts.
 
-```{r district_competitiveness_relative_graph, echo=FALSE}
+**Relative Win Margin.** The relative win margin is calculated as the directed value of the difference in the two-party percentage, such that positive or negative values indicate a Democrat or Republican won more votes, respectively. Once again, this excludes any third-party or write-in votes. $w_{rel} = \frac{votes_{d}}{votes_{d} + votes_{r}} - \frac{votes_{r}}{votes_{d} + votes_{r}}$, which simplifies to $w_{rel} = \frac{votes_{d} - votes_{r}}{votes_{d} + votes_{r}}$, where $w_{rel}$ is the absolute win margin of a district and $votes_{d}$ and $votes_{r}$ are the count of votes for the Democratic and Republican candidates, respectively. The values are confined between -100 and 100, with -100 indicating a Republican won all the two-party votes, a 0 indicating the Democrat and Republican won equal number of votes, and a 100 indicating a Democrat won all the two-party votes. The absolute value of this metric is the absolute win margin $w_{abs}$. This value is akin to a Cook Political Score value or other similar district partisan measurements.
+
+```{r district_competitiveness_relative, echo=FALSE}
+
+win_margin_relative_df <- data.frame(
+  run = c(1:length(win_margin_relative_median)),
+  Median = win_margin_relative_median,
+  Minimum = win_margin_relative_min,
+  Maximum = win_margin_relative_max,
+  # group color = 1 is for runs, color = 2 is for 113th congress actuals
+  Group = "Runs"
+  ) %>%
+  tibble::add_row(
+    run = NA,
+    Median = 100 * median(results$`Relative Win Margin`, na.rm = TRUE),
+    Minimum = 100 * min(results$`Relative Win Margin`, na.rm = TRUE),
+    Maximum = 100 * max(results$`Relative Win Margin`, na.rm = TRUE),
+    Group = "Actual"
+  ) %>%
+  tidyr::pivot_longer(2:4, names_to = "variable", values_to = "value") %>%
+  dplyr::mutate(
+    variable = factor(
+      variable,
+      levels = c("Median", "Minimum", "Maximum")
+      ),
+    Group = factor(
+      Group,
+      levels = c("Runs", "Actual")
+    ))
 
 ggplot2::ggplot() +
   ggbeeswarm::geom_beeswarm(data = win_margin_relative_df,
@@ -918,6 +983,7 @@ ggplot2::ggplot() +
     y = "Points of Relative Win Margin",
     caption = "Sources: Redistricting Data Hub (RDH), 2020 results"
     ) +
+  ggplot2::ylim(c(-65, 65)) +
   ggplot2::theme_light()
 
 ```
@@ -1033,7 +1099,6 @@ ggplot2::ggplot() +
 
 Across the `r num_gen_maps` generated maps, the districts created with the largest deviations above and below the target population value were `r gen_maps_min_value_min` (`r gen_maps_min_perc_min`%) and `r gen_maps_max_value_max` (`r gen_maps_max_perc_max`%), respectively. All district populations fell within ±1% of the target population. On average, the median minimum and maximum district population values across the `r num_gen_maps` generated maps were `r gen_maps_min_value_median` (`r gen_maps_min_perc_median`%) and `r gen_maps_max_value_median` (`r gen_maps_max_perc_median`%) individuals, respectively.
 
-
 ### Race/Ethnicity
 ```{r race_numbers, include=FALSE}
 
@@ -1141,7 +1206,7 @@ diversity_index_values_max <- lapply(diversity_index_values, max) %>% unlist()
 
 ohio_statewide_diversity_index <- population_data %>%
   dplyr::group_by() %>%
-  dplyr::summarise(across(c(White, Black, AIAN, Asian, NHPI, Other, `Two or More Races`), sum, na.rm = TRUE)) %>%
+  dplyr::summarise(across(c(White, Black, Hispanic, AIAN, Asian, NHPI, Other, `Two or More Races`), sum, na.rm = TRUE)) %>%
   dplyr::ungroup() %>%
   t() %>%
   as.data.frame() %>%
@@ -1151,7 +1216,7 @@ ohio_statewide_diversity_index <- population_data %>%
     Perc_Squared = Perc^2
   )
 ohio_diversity_index <- 1 - sum(ohio_statewide_diversity_index$Perc_Squared, na.rm = TRUE)
-# 0.3267474
+# 0.3258022
   
 diversity_index_df <- data.frame(
   run = c(1:length(diversity_index_values_median)),
@@ -1181,6 +1246,12 @@ diversity_index_df <- data.frame(
 
 ```
 
+The Diversity Index is a commonly used measurement calculating the racial/ethnic diversity within a given area, including use by the United States Census Bureau.^["Racial and Ethnic Diversity in the United States: 2010 Census and 2020 Census", United States Census Bureau. https://www.census.gov/library/visualizations/interactive/racial-and-ethnic-diversity-in-the-united-states-2010-and-2020-census.html] The Diversity Index is defined as $D = 1 - \sum_{}^{} \rho_{i}^{2}$, where $\rho_{i}$ is the proportion of the population belonging to each of the eight race/ethnicity groupings. A higher index score indicates greater diversity.
+
+Table XX shows summary statistics for district diversity indices along with summary statistics for the 113th Congress. Ohio's state-wide Diversity Index, $D_{OH} = 0.326$, is shown as a red dashed line. Points above this line are more racially/ethnically diverse than Ohio overall, while points below this line are less so.
+
+Looking at the minimum and maximum Diversity Index scores by map, lower minimum values and higher maximum values are a potential indication of packing or cracking racial groups. This may be done unintentionally, it may be unavoidable due to the distribution of racial and ethnic groups, or it may be done intentionally in the case of majority-minority districts.
+
 ```{r diversity_index_plot, echo=FALSE}
 
 ggplot2::ggplot() +
@@ -1190,10 +1261,10 @@ ggplot2::ggplot() +
   ggplot2::geom_hline(ggplot2::aes(yintercept = ohio_diversity_index, color = "Ohio Avg."), linetype = "dotdash")  +
   ggplot2::labs(
     title = "TABLE XX. Diversity Index Summary Values",
-    subtitle = "Run Averages versus 112th Congress",
+    subtitle = "Run Averages versus 113th Congress",
     x = "Summary Value by Run",
     y = "Diversity Index Value",
-    caption = "Sources: US Census Bureau, 2010 Census;\nNote: Ethnicity data not included"
+    caption = "Sources: US Census Bureau, 2010 Census"
     ) +
   ggplot2::theme_light() +
   ggplot2::theme(

@@ -19,7 +19,7 @@ library(tidyverse)
 ### load data ----------------------------------------------------------------------
 
 # two-digit code for the output file number
-output_number <- "02"
+output_number <- "61"
 
 # assign folder filepaths
 input_folder <- "Tracts 2010 (alg2)/99_Export Data/District Outputs Tracts 2010 v2"
@@ -67,7 +67,7 @@ shape_tract <- shape_tract %>%
 
 ### format data ----------------------------------------------------------------------
 
-run <- c(42:60) %>%
+run <- c(61:65) %>%
   stringr::str_pad(width = 2, side = "left", pad = "0")
 
 for(output_number in run){
