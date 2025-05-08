@@ -117,14 +117,14 @@ tdf_adj_dist2 <- example_tdf %>%
   dplyr::filter(Geography %in% adj_dist2)
 
 color_palette2 <- c("dodgerblue3", "lightblue", "lightgray")
-border_palette <- c("#595959", "green", "gray")
+border_palette <- c("green", "#595959") #, "green", "gray")
 
 step4_map <- shape_tract_v2 %>%
   dplyr::left_join(example_tdf, by = "Geography") %>%
   dplyr::rename(dist_r = distfrom) %>%
   dplyr::mutate(
     Adjacency = dplyr::case_when(
-      Geography %in% starting_dist1 ~ "Starting tracts",
+      # Geography %in% starting_dist1 ~ "Starting tracts",
       Geography %in% adj_dist1 ~ "Adjacent tracts",
       .default = "Other tracts"
       ),
@@ -132,18 +132,18 @@ step4_map <- shape_tract_v2 %>%
       Geography %in% starting_dist1 | dist_r <= -16 ~ "Qualified",
       .default = "Unqualified"
     )) %>%
-  dplyr::mutate(Adjacency = factor(Adjacency, levels = c("Other tracts",
-                                                         "Adjacent tracts",
-                                                         "Starting tracts")),
+  dplyr::mutate(Adjacency = factor(Adjacency, levels = c("Adjacent tracts",
+                                                         "Other tracts")),
+                                                         # "Starting tracts")),
                 `Qualified dist_r` = factor(`Qualified dist_r`, levels = c("Qualified",
                                                                            "Unqualified"))) %>%
   dplyr::mutate(dist_r = ifelse(dist_r > -11, -11, dist_r))
 
-# step4_map_starting <- step4_map %>%
-#   dplyr::filter(Geography %in% starting_dist1)
-# step4_map_adj <- step4_map %>%
-#   dplyr::filter(Geography %in% adj_dist1)
-# 
+step4_map_starting <- step4_map %>%
+  dplyr::filter(Geography %in% starting_dist1)
+step4_map_adj <- step4_map %>%
+  dplyr::filter(Geography %in% adj_dist1)
+
 # map4 <- ggplot2::ggplot() +
 #   # ggplot2::coord_sf(xlim = c(41.3, -81.6), ylim = c(42.6, -81.75), clip = "off") +
 #   ggplot2::geom_sf(data = step4_map, ggplot2::aes(fill = dist_r)) +
@@ -151,7 +151,7 @@ step4_map <- shape_tract_v2 %>%
 #   # scale_fill_continuous(type = "gradient") +
 #   colorspace::scale_fill_continuous_divergingx(palette = 'RdBu', mid = -2) +
 #   ggplot2::geom_sf(data = step4_map_adj, fill = NA, color = "green") +
-#   ggplot2::geom_sf(data = step4_map_starting, fill = "gray") +
+#   # ggplot2::geom_sf(data = step4_map_starting, fill = "gray") +
 #   # coord_sf(xlim = c(-82.55, -81.85), ylim = c(41.05, 41.55)) +
 #   coord_sf(xlim = c(-82.45, -81.95), ylim = c(41.15, 41.45)) +
 #   # ggplot2::scale_fill_manual(values = color_palette) +
@@ -160,17 +160,47 @@ step4_map <- shape_tract_v2 %>%
 #   # coord_sf(xlim = c(41.3, -84), ylim = c(42.6, -83), expand = FALSE) +
 #   ggplot2::theme_void() +
 #   ggplot2::labs(title = "STEP 7: Expand the District",
-#                 caption = "Note: Census tracts shaded gray are the starting tracts within\n
-#                 the district. Tracts outlined in green are adjacent to at least\n
-#                 one tract already assigned to the district.")
+#                 caption = "Note: Tracts outlined in green are adjacent to at least one tract already assigned to the district.")
 #   # ggplot2::theme(legend.position="none")
 #   # st_crop(map4, c(xmin= 41.3, ymin = -85, xmax = 42.6, ymax = -80))
-# #   
+# #
 # # coord_map(projection = "albers", lat0 = 39, lat1 = 45,
 # #           xlim = c(-117,-75), ylim = c(26,49)) +
 # # 41.499167, -81.694722
 # map4
 
+
+
+map4 <- ggplot2::ggplot(data = step4_map) +
+  ggplot2::geom_sf(ggplot2::aes(fill = dist_r, color = Adjacency)) +
+  colorspace::scale_fill_continuous_divergingx(palette = 'RdBu', mid = -2) +
+  # ggplot2::geom_sf(data = step4_map, ggplot2::aes(color = "Adjacency")) +
+  ggplot2::scale_color_manual(values = border_palette) +
+  # geom_sf_pattern(aes(fill = dist_r,
+  #                     color = Adjacency,
+  #                     pattern = `Qualified dist_r`)) +
+  # scale_pattern_manual(
+  #   values = c(
+  #     Qualified = 'stripe',
+  #     Unqualified = 'none'
+  #   )) +
+  # geom_density_pattern(aes(pattern_fill = as.factor(`Qualified dist_r`), pattern_type = as.factor(`Qualified dist_r`)), pattern = 'polygon_tiling', pattern_key_scale_factor = 1.2) +
+  # scale_pattern_type_manual(values = c('hexagonal', 'pythagorean')) +
+  # ggpattern::scale_pattern_manual(values = c("Starting tract" = "none", "Adjacent tracts" = "stripe")) +
+  # ggplot2::geom_sf(data = step4_map_adj, fill = NA, color = "green") +
+  # ggplot2::geom_sf(data = step4_map_starting, fill = "gray") +
+  coord_sf(xlim = c(-82.425, -81.975), ylim = c(41.175, 41.4225)) +
+  ggplot2::theme_void() +
+  ggplot2::labs(title = "STEP 7: Expand the District",
+                caption = "Note: Census tracts shaded gray are the starting tracts within\n
+                the district. Tracts outlined in green are adjacent to at least\n
+                one tract already assigned to the district.")
+
+map4
+
+
+ggplot2::ggsave("methodology_map_step4.png",
+                dpi = 300)
 
 map4 <- ggplot2::ggplot(data = step4_map) +
   ggplot2::geom_sf(ggplot2::aes(fill = dist_r, color = Adjacency)) +
