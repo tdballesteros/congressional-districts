@@ -1,5 +1,6 @@
 ---
-title: "Results and Findings"
+title: "Procedurally Generated Congressional Districts"
+subtitle: "Results and Findings for Ohio's 2020 Congressional Elections"
 author: "Tim Ballesteros"
 date: "`r Sys.Date()`"
 output: html_document
@@ -729,7 +730,7 @@ For a majority of states, the state must split up its territory into two or more
 
 ...
 
-Ohio, a state until recently dubbed a bellwhether state for presidential elections, has been one of a handful of states to receive heightened scrutiny for its redistricting practices.^["A Bellwether Refresher: The States Most Likely To Mirror National Election Outcome" by Ron Elving, NPR. https://www.npr.org/2016/11/06/500898858/a-bellwether-refresher-the-states-most-likely-to-mirror-national-election-outcom]
+Ohio, a state until recently dubbed a bellwether state for presidential elections, has been one of a handful of states to receive heightened scrutiny for its redistricting practices.^["A Bellwether Refresher: The States Most Likely To Mirror National Election Outcome" by Ron Elving, NPR. https://www.npr.org/2016/11/06/500898858/a-bellwether-refresher-the-states-most-likely-to-mirror-national-election-outcom]
 
 ...
 
