@@ -67,7 +67,7 @@ shape_tract <- shape_tract %>%
 
 ### format data ----------------------------------------------------------------------
 
-run <- c(61:65) %>%
+run <- c(61:70) %>%
   stringr::str_pad(width = 2, side = "left", pad = "0")
 
 for(output_number in run){

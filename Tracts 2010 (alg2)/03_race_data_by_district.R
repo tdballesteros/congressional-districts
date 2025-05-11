@@ -148,7 +148,7 @@ district_target_population <- sum(pop_tracts$Population, na.rm = TRUE) / 16
 
 ### race data ----------------------------------------------------------------------
 
-numbers <- c(1:60) %>% stringr::str_pad(width = 2, side = "left", pad = "0")
+numbers <- c(61:70) %>% stringr::str_pad(width = 2, side = "left", pad = "0")
 
 for(output_number in numbers){
   
