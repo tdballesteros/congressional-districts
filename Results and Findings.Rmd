@@ -735,6 +735,7 @@ Ohio, a state until recently dubbed a bellwether state for presidential election
 ...
 
 ## Methodology
+### Map Generation
 Congressional district maps for Ohio are procedurally generated, using only United States Census total population counts and geographical information (e.g., tract adjacency). Additional demographic information, namely race and ethnicity data, is intentionally excluded from this study. While using this data is legal - indeed, even required - in some states to ensure majority-minority district requirements are fulfilled, one of my goals is to assess whether the created districts show notable bias against particular groups. Without the inclusion of race and ethnicity, is there potential for an algorithmic approach to district creation to dilute non-white non-Hispanic groups' electoral power? Ohio has only limited ability to test this, with the state being overwhelmingly white, non-Hispanic. Substantial concentrations of other groups, particularly Black, non-Hispanic communities, exist in and around several large cities such as Cleveland, Akron, and Columbus. However, in the case of Ohio, this largely amounts to testing whether and how an algorithm might break up urban areas.
 
 During the 2020 election, Ohio had 16 congressional seats. Leveraging this count as a power of two, my algorithm splits an area into two areas with equal populations; recursively executing this process results in 16 districts. The following steps are conducted to split a geography in two:
@@ -769,13 +770,45 @@ knitr::include_graphics(c("methodology_map_step3.png","methodology_map_step4.png
 
 ```
 
+### Map Comparison
 
 To test whether an algorithm randomly constructing congressional districts within the typical confines - contiguous, equal populations - I use Ohio as an example. Using the post-2010 United States Census redistricting, population data from 2010 is used in conjunction with Ohio's 2020 election results, which use districts based on the 2010 Census. Results will be compared across four aspects, with multiple specific metrics compared within these aspects:
 
 1. **Partisanship**: Assessing district competitiveness and how many seats each map produces for each candidate compared to the 113th Congress's actual seat allocation and the number of votes each party received state-wide.
++ *Allocation District Seats Won*
++ *Absolute District Competitiveness*, not taking party leaning into consideration, only using the scale of the win margin.
++ *Relative District Competitiveness*, taking party leaning into consideration in addition to the scale of the win margin.
 2. **Population**: Verifying whether the maps fulfill equal population requirements and comparing to the 113th Congress's district populations.
 3. **Race/Ethnicity**: Assessing racial and ethnic group distribution across the districts and compared to districts for the 113th Congress's racial and ethnic spread.
 4. **District Compactness**: Utilizing several operationalisations of district compactness.
+
+**Partisanship.** To compare partisanship with the actual results, the *Allocation of Seats Won*, the *Absolute District Competitiveness*, and the *Relative District Competitiveness* are compared against the 2020 election results. Using RDH's estimated 2020 election results redistributed by census tract, the number of votes within the 2020 presidential election are used as a proxy for congressional voting intention.
+
+To calculate the *Allocation of Seats Won*, the party to receive the most votes in the newly created district is selected as the winner. Third-party votes remain in the calculations, so the winner need not win a majority of the votes, only a plurality. This is the same method used in actual results for a majority of federal, state, and local elections. The number of wins are summed across the 16 districts.
+
+To calculate a comparable real-world counter, the actual seat allocation for the 117th Congress ($S_{R1}$ and $S_{D1}$ for the number of seats won by Republicans and Democrats, respectively) is used alongside two theoretical metrics, both of which calculate seat apportionment at a state-wide level using a proportional representation (PR) multi-member district election system, with seats distributed using the Sainte-Laguë method. These results apply Ohioans' votes proportionally, such that the ratio of votes for each party matches the ratio of congressional seats allotted to that party.
+
+The first calculation ($S_{R2}$ and $S_{D2}$) uses the 2020 presidential election results, which will distribute seats in line with the proportions of votes cast for each candidate in the presidential election - 53.3% for Trump and 45.2% for Biden. By using the presidential race results, voters across the state are voting for the same race with the same candidates, removing possible impacts of candidate-specific differences possible when using votes for different congressional candidates. This method does assume voters generally vote party-line tickets, where the voter votes for candidates of the same party for partisan elections.
+
+As a counter to this, the second theoretical metric ($S_{R3}$ and $S_{D3}$) uses 2020 congressional election results. This better measures the results of the actual elections the model is attempting to assess. The method also allows for split-ticket voting; individuals may vote differently for a presidential candidate - a heavily nationalized race - versus a congressional candidate - historically more tied to local issues. However, individual candidates differ across the state and individual candidate popularity could draw different voting results even across similar districts.
+
+In the case of the 2020 election in Ohio, both theoretical metrics result in the same seat allocation: `r sum(presidential_results_sainte_lague == 1)` seats for Republicans and `r sum(presidential_results_sainte_lague == 2)` seats for Democrats ($S_{R2}$ = $S_{R3}$ = `r sum(presidential_results_sainte_lague == 1)` and $S_{D2}$ = $S_{D3}$ = `r sum(presidential_results_sainte_lague == 2)`). Ohio's 2020 election saw 12 Republicans ($S_{D1} = 12$) and 4 Democrats ($S_{D1} = 12$) winning seats for the 117th Congress.
+
+*Absolute District Competitiveness* and *Relative District Competitiveness* both measure by what margin the winning candidate wins the district by.
+
+The *Absolute Win Margin* ($w_{abs}$) is calculated as the absolute value of the difference in the two-party percentage, such that the winner being a Democrat or Republican is not factored into the value. This excludes any third-party or write-in votes. $w_{abs} = |\frac{votes_{d}}{votes_{d} + votes_{r}} - \frac{votes_{r}}{votes_{d} + votes_{r}}|$, where $w_{abs}$ is the absolute win margin of a district and $votes_{d}$ and $votes_{r}$ are the count of votes for the Democratic and Republican candidates, respectively. This can be simplified to $w_{abs} = \frac{|votes_{d} - votes_{r}|}{votes_{d} + votes_{r}}$. The values are confined between 0 and 100, with 0 representing an exactly even split of votes between the Democrat and Republican and 100 representing one of the candidate receiving every vote while the other candidate receives none. 
+
+The *Relative Win Margin* ($w_{rel}$) is calculated as the directed value of the difference in the two-party percentage, such that positive or negative values indicate a Democrat or Republican won more votes, respectively. Once again, this excludes any third-party or write-in votes. $w_{rel} = \frac{votes_{d}}{votes_{d} + votes_{r}} - \frac{votes_{r}}{votes_{d} + votes_{r}}$, which simplifies to $w_{rel} = \frac{votes_{d} - votes_{r}}{votes_{d} + votes_{r}}$, where $w_{rel}$ is the absolute win margin of a district and $votes_{d}$ and $votes_{r}$ are the count of votes for the Democratic and Republican candidates, respectively. The values are confined between -100 and 100, with -100 indicating a Republican won all the two-party votes, a 0 indicating the Democrat and Republican won equal number of votes, and a 100 indicating a Democrat won all the two-party votes. The absolute value of this metric is the absolute win margin $w_{abs}$. This value is akin to a Cook Political Score value or other similar district partisan measurements.
+
+Both these metrics emulate district leaning metrics such as the Cook Political Score, with $w_{abs}$ ignoring which party the lean is towards and $w_{rel}$ including it. These metrics are used to represent how competitive a given district is, with very low values (or values closer to 0) indicating a toss-up. Higher values (or values further from 0) indicate more partisan districts (i.e., "solid Republican" or "safe Democrat").
+
+For purposes of comparing these partisan metrics to actual and theoretical results, distributions of seats closer to proportional representation and more competitive districts are seen as a better outcome. While normative, these have support in theoretical and empirical election research.
+
+**Population.** District population results are compared to the actual district populations and the actual equal population distribution. For each map, the median, minimum, and maximum district populations are compared to the same summary values of districts in the 117th Congress. These values are additionally compared to $P_{16} = 721,032$, one-sixteenth of Ohio's population as tabulated in the 2010 Census.
+
+**Race and Ethnicity.**
+
+**District Compactness.**
 
 ## Findings
 ### Partisanship
@@ -853,11 +886,9 @@ win_margin_relative_min <- lapply(win_margins, min) %>% unlist()
 win_margin_relative_max <- lapply(win_margins, max) %>% unlist()
 
 ```
-As a comparison for what a partisanly "fair" district map of Ohio should look like, two allocations of seats using the 2020 vote are calculated: one using votes for the presidential race and one using the party of votes for the congressional race. Both results are compiled at the state level and seats are assigned using proportional representation, assigned using the Sainte-Laguë method. These results apply Ohioans' votes proportionally, such that the ratio of votes for each party matches the ratio of congressional seats allotted to that party. Between these two methods, each has distinct strengths and weaknesses. The presidential race is consistent across the entire state (and, excluding third-party ballot access, the entire country), removing possible impacts of candidate-specific differences seen when comparing votes for different congressional candidates. Using congressional election results, however, is measuring the results of the actual elections the model is attempting to assess; individuals may vote differently for a presidential candidate - a heavily nationalized race - versus a congressional candidate - historically more tied to local issues. As politics have become increasingly nationalized over the last several decades, however, the impact of split-ticket voters has lessened.
+**Allocation of Seats Won.** Across the `r nrow(winners_by_run)` procedurally generated congressional maps of Ohio's 16 seats using 2010 Census data, the most frequent number of seats won by Republicans was `r names(sort(-table(winners_by_run$Republican)))[1]` and won by Democrats was `r names(sort(-table(winners_by_run$Democrat)))[1]`. The mean values for Republicans and Democrats were $\overline{x}_{R} =$ `r round(mean(winners_by_run$Republican), 2)` and $\overline{x}_{D} =$ `r round(mean(winners_by_run$Democrat), 2)` with standard distributions of $\sigma =$ `r round(sd(winners_by_run$Republican),3)`. The results range from `r min(winners_by_run$Republican)` to `r max(winners_by_run$Republican)` seats for Republicans and `r min(winners_by_run$Democrat)` to `r max(winners_by_run$Democrat)` for Democrats.
 
-Despite their theoretical differences, both calculations result in the same allocation of seats based on the 2020 results: `r sum(presidential_results_sainte_lague == 1)` seats for Republicans and `r sum(presidential_results_sainte_lague == 2)` seats for Democrats. Actual results saw 12 Republicans and 4 Democrats winning seats for the 117th United States Congress.
-
-Based on `r nrow(winners_by_run)` procedurally generated congressional maps of Ohio's 16 seats using 2010 Census data, the average number of seats won by Republicans was `r round(median(winners_by_run$Republican))` and won by Democrats was `r round(median(winners_by_run$Democrat))`. Table 1 shows the frequency of number of seats won by party.
+Table 1 shows the frequencies for each number of seats won by party per procedurally generated map. Values for the actual 117th Congress seat allocation $S_{R1} = 12$ and $S_{D1} = 4$ are shown as black dashed lines, while the theoretical PR seat allocations $S_{R2} = 9$ and $S_{D2} = 7$ are shown as gray dotted lines.
 
 ```{r winner_frequency_plot, echo=FALSE, warning=FALSE}
 
@@ -871,7 +902,7 @@ ggplot2::ggplot() +
   ggplot2::geom_vline(ggplot2::aes(xintercept = c(7, 9), color = "gray40"), linetype = "dotted") +
   ggplot2::scale_color_manual(values = c("black","gray40"), label = c("2020 Actual","2020 PR Expected")) +
   ggplot2::labs(
-    title = "TABLE 1. Number of Districts Won by Party",
+    title = "TABLE 1. Frequency of Number of Districts Won by Party",
     subtitle = "By District Map versus 2020 results",
     x = "Number of Districts Won by Party",
     y = "Frequency",
@@ -882,16 +913,19 @@ ggplot2::ggplot() +
 
   ggplot2::theme_light()
 
+actual_win_margins_absolute <- results %>%
+  dplyr::pull(`Absolute Win Margin`)
+
 ```
 
-The random algorithm on average produced a seat distribution of 11 Republican to 5 Democrat seats, which is closer to the expected proportional representation than the actual results.
+The procedurally generated maps rarely (`r round(100 * sum(winners_by_run$Republican == 9) / nrow(winners_by_run), 0)`% of runs) created maps with the same seat allocation as the PR seat distribution. Maps with the same distribution as the actual 117th Congressional allocation of seats was more common (`r round(100 * sum(winners_by_run$Republican == 12) / nrow(winners_by_run), 0)`% of runs) and several maps saw more extreme results still (`r round(100 * sum(winners_by_run$Republican > 12) / nrow(winners_by_run), 0)`% of runs). A majority of runs produced seat allocation between the two comparison metrics (`r round(100 * sum(winners_by_run$Republican %in% c(10, 11)) / nrow(winners_by_run), 0)`% of runs).
 
 #### District Competitiveness
-**Absolute Win Margin.** The absolute win margin is calculated as the absolute value of the difference in the two-party percentage, such that the winner being a Democrat or Republican is not factored into the value. This excludes any third-party or write-in votes. $w_{abs} = |\frac{votes_{d}}{votes_{d} + votes_{r}} - \frac{votes_{r}}{votes_{d} + votes_{r}}|$, where $w_{abs}$ is the absolute win margin of a district and $votes_{d}$ and $votes_{r}$ are the count of votes for the Democratic and Republican candidates, respectively. This can be simplified to $w_{abs} = \frac{|votes_{d} - votes_{r}|}{votes_{d} + votes_{r}}$. The values are confined between 0 and 100, with 0 representing an exactly even split of votes between the Democrat and Republican and 100 representing one of the candidate receiving every vote while the other candidate receives none. This value is akin to a Cook Political Score value or other similar district partisan measurements, absent the direction of the political lean.
+**Absolute Win Margin.** The median absolute win margin across the `r nrow(winners_by_run)` runs was `r round(median(win_margin_absolute_median), 1)`% points, indicating the a two-party election result of `r round(50 + (median(win_margin_absolute_median)/2),1)`% to `r round(50 - (median(win_margin_absolute_median)/2),1)`%. The procedurally generated maps produced districts with the lowest absolute win margin from `r round(min(win_margin_absolute_min), 1)`% points to `r round(max(win_margin_absolute_min), 1)`% points, with a median most competitive district of `r round(median(win_margin_absolute_min), 1)`% points. Additionally, they produced districts with the lowest absolute win margin from `r round(min(win_margin_absolute_max), 1)`% points to `r round(max(win_margin_absolute_max), 1)`% points, with a median least competitive district of `r round(median(win_margin_absolute_max), 1)`% points.
 
-Table XX shows summary statistics calculated for each run, with the 113th Congress's results shown in red. For mean and median results, a higher value indicates the average district within that map of 16 districts is more partisan. For minimum results, a higher value indicates the least partisan district (i.e., the most competitive district) is more partisan (less competitive); for maximum results, a lower value indicates the most partisan district (i.e., the "safest" district) is less partisan (more competitive).
+The 2020 congressional election results saw district win margins ranging from `r round(100 * min(actual_win_margins_absolute), 1)`% points to `r round(100 * max(actual_win_margins_absolute), 1)`% points, with a median absolute win margin of `r round(100 * median(actual_win_margins_absolute), 1)`% points.
 
-Overall, lower values indicate higher electoral competitiveness.
+Table 2 shows summary statistics calculated for each run, with the 117th Congress's results shown in red. For mean and median results, a higher value indicates the average district within that map of 16 districts is more partisan. For minimum results, a higher value indicates the least partisan district (i.e., the most competitive district) is more partisan (less competitive); for maximum results, a lower value indicates the most partisan district (i.e., the "safest" district) is less partisan (more competitive). Overall, lower values indicate higher electoral competitiveness.
 
 ```{r district_competitiveness_absolute, echo=FALSE}
 
@@ -901,7 +935,7 @@ win_margin_absolute_df <- data.frame(
   Median = win_margin_absolute_median,
   Minimum = win_margin_absolute_min,
   Maximum = win_margin_absolute_max,
-  # group color = 1 is for runs, color = 2 is for 113th congress actuals
+  # group color = 1 is for runs, color = 2 is for 117th congress actuals
   Group = "Runs"
   ) %>%
   tibble::add_row(
@@ -929,8 +963,8 @@ ggplot2::ggplot() +
   ggplot2::scale_color_manual(values = c("black", "red", "blue", "black")) +
   # ggplot2::geom_hline(ggplot2::aes(yintercept = ohio_diversity_index, color = "Ohio Avg."), linetype = "dotdash")  +
   ggplot2::labs(
-    title = "Absolute Win Margin",
-    subtitle = "Run Averages versus 113th Congress",
+    title = "TABLE 2. Absolute Win Margin",
+    subtitle = "Run Summary Statistics versus 117th Congress",
     x = "Summary Value by Run",
     y = "Points of Absolute Win Margin",
     caption = "Sources: Redistricting Data Hub (RDH), 2020 results"
@@ -940,9 +974,11 @@ ggplot2::ggplot() +
 
 ```
 
-Across all the procedurally generated maps, all show average (both calculated as mean and median) districts as more competitive than the 113th district results. A majority of districts also had more competitive most-competitive districts and all but one map had more competitive least-competitive districts.
+Across the procedurally generated maps, congressional districts were more competitive than the 117th Congress's districts. All had the average district as more competitive than the actual districts used for the 117th Congress. A substantial majority (`r round(100 * (sum(win_margin_absolute_min < (100 * min(actual_win_margins_absolute))) / length(win_margin_absolute_min)), 1)`%) had the most-competitive district as more competitive than the actual most competitive district in the 2020 election - Ohio's 1st District. `r round(100 * sum(win_margin_absolute_min < 5) / length(win_margin_absolute_min), 1)`% of the maps produced at least one district with the absolute margin less than 5% points.
 
-**Relative Win Margin.** The relative win margin is calculated as the directed value of the difference in the two-party percentage, such that positive or negative values indicate a Democrat or Republican won more votes, respectively. Once again, this excludes any third-party or write-in votes. $w_{rel} = \frac{votes_{d}}{votes_{d} + votes_{r}} - \frac{votes_{r}}{votes_{d} + votes_{r}}$, which simplifies to $w_{rel} = \frac{votes_{d} - votes_{r}}{votes_{d} + votes_{r}}$, where $w_{rel}$ is the absolute win margin of a district and $votes_{d}$ and $votes_{r}$ are the count of votes for the Democratic and Republican candidates, respectively. The values are confined between -100 and 100, with -100 indicating a Republican won all the two-party votes, a 0 indicating the Democrat and Republican won equal number of votes, and a 100 indicating a Democrat won all the two-party votes. The absolute value of this metric is the absolute win margin $w_{abs}$. This value is akin to a Cook Political Score value or other similar district partisan measurements.
+Of particular note here is the relatively high partisan leanings of the actual congressional districts. The 2020 election saw Ohio's 1st District candidate Steve Chabot (R) win by 7.4% points. Indeed, in the Cook Political Report's final 2020 House Race Ratings, only three of Ohio's races were even listed as competitive - with two races the 10th District and 12th District rated as "Likely Republican;" OH-01 was listed as a toss-up.^["2020 House Race Ratings" by the Cook Political Report, 2 November 2020 version. Accessible via WayBack Machine https://web.archive.org/web/20201104131118/https://cookpolitical.com/ratings/house-race-ratings] Democrats won the majority of seats in the House of Representatives in 2020 and Joe Biden won the presidential election, with the national electoral environment favoring the Democrats.
+
+**Relative Win Margin.** Across the `r nrow(winners_by_run)` runs, the median relative win margin was `r round(median(win_margin_relative_median), 1)`% points, or `r abs(round(median(win_margin_relative_median), 0))`% points favoring Republicans.
 
 ```{r district_competitiveness_relative, echo=FALSE}
 
@@ -978,8 +1014,8 @@ ggplot2::ggplot() +
   ggplot2::scale_color_manual(values = c("black", "red", "blue", "black")) +
   # ggplot2::geom_hline(ggplot2::aes(yintercept = ohio_diversity_index, color = "Ohio Avg."), linetype = "dotdash")  +
   ggplot2::labs(
-    title = "Relative Win Margin",
-    subtitle = "Run Averages versus 113th Congress",
+    title = "TABLE 3. Relative Win Margin",
+    subtitle = "Run Summary Statistics versus 117th Congress",
     x = "Summary Value by Run",
     y = "Points of Relative Win Margin",
     caption = "Sources: Redistricting Data Hub (RDH), 2020 results"
@@ -988,7 +1024,6 @@ ggplot2::ggplot() +
   ggplot2::theme_light()
 
 ```
-
 
 ### Population
 ```{r pop_numbers, include=FALSE}
@@ -1028,8 +1063,8 @@ target_pop_spread <- prettyNum(round(0.1*sum(population_data$Population)/16), bi
 congress113_min_value <- prettyNum(round(min(census_data_113th$Population)), big.mark = ",")
 congress113_max_value <- prettyNum(round(max(census_data_113th$Population)), big.mark = ",")
 
-congress113_min_perc <- round(min(census_data_113th$`Population Target Ratio`),2)
-congress113_max_perc <- round(max(census_data_113th$`Population Target Ratio`),2)
+congress113_min_perc <- round(min(census_data_113th$`Population Target Ratio`), 1)
+congress113_max_perc <- round(max(census_data_113th$`Population Target Ratio`), 1)
 
 # number of generated maps
 num_gen_maps <- length(population_target_ratio_values_median)
@@ -1038,20 +1073,24 @@ num_gen_maps <- length(population_target_ratio_values_median)
 gen_maps_min_value_min <- prettyNum(round((min(population_target_ratio_values_min)/100)*(sum(population_data$Population)/16)), big.mark = ",")
 gen_maps_max_value_max <- prettyNum(round((max(population_target_ratio_values_max)/100)*sum(population_data$Population)/16), big.mark = ",")
 
-gen_maps_min_perc_min <- round(min(population_target_ratio_values_min),2)
-gen_maps_max_perc_max <- round(max(population_target_ratio_values_max),2)
+gen_maps_min_perc_min <- round(min(population_target_ratio_values_min), 1)
+gen_maps_max_perc_max <- round(max(population_target_ratio_values_max), 1)
 
 gen_maps_min_value_median <- prettyNum(round((median(population_target_ratio_values_min)/100)*(sum(population_data$Population)/16)), big.mark = ",")
 gen_maps_max_value_median <- prettyNum(round((median(population_target_ratio_values_max)/100)*sum(population_data$Population)/16), big.mark = ",")
 
-gen_maps_min_perc_median <- round(median(population_target_ratio_values_min),2)
-gen_maps_max_perc_median <- round(median(population_target_ratio_values_max),2)
+gen_maps_min_perc_median <- round(median(population_target_ratio_values_min), 1)
+gen_maps_max_perc_median <- round(median(population_target_ratio_values_max), 1)
 
 ```
+
 Congressional districts within each state are required to have equal populations, though the degree of their margin of error varies by state. Ultimately, districts will have small deviations above or below the target amount due to compiling geographic units of various populations. Ohio's Constitution, as updated in 2021, stipulates that "[i]n no event shall any district contain a population of less than ninety-five per cent nor more than one hundred five per cent of the applicable ratio of representation" (Article XI, Section 3(B)(1)).^[Ohio Constitution Article XI, Section 3: https://codes.ohio.gov/ohio-constitution/section-11.3] This allows districts to have a population range of 10% of the target district population as measured by the decennial census, which based on the 2010 Census would be `r target_pop_spread` individuals.
+
+The algorithm for the procedurally generated maps had equal population levels baked in, resulting in populations falling well within the legally required ±5% of the distributed population $P_{16}$ = 721,032 (684,980 to 757,083 individuals). Across the `r nrow(winners_by_run)` procedurally generated maps, the district with the smallest population had `r gen_maps_min_value_min` individuals (`r gen_maps_min_perc_min`% of $P_{16}$), while the largest population had `r gen_maps_max_value_max` individuals (`r gen_maps_max_perc_max`% of $P_{16}$). On average, the smallest and largest populations were `r gen_maps_min_value_median` (`r gen_maps_min_perc_median`% of $P_{16}$) and `r gen_maps_max_value_median` (`r gen_maps_max_perc_median`% of $P_{16}$). All values are within ±1% of $P_{16}$.
 
 For Ohio's redrawing following the 2010 Census, each district was expected to have approximately `r target_pop` individuals across its now 16 congressional districts. Using the same 2010 Census data, Ohio's districts in the 113th Congress ranged from `r congress113_min_value` individuals (`r congress113_min_perc`% of the target population) to `r congress113_max_value` individuals (`r congress113_max_perc`%).
 
+Table 4 shows the smallest and largest districts by population for each of the `r nrow(winners_by_run)` procedurally generated maps as percentages of $P_{16}$. The smallest and largest district populations for the 117th congress are also shown.
 
 ```{r target_population, echo=FALSE}
 
@@ -1079,8 +1118,8 @@ ggplot2::ggplot() +
   ggplot2::scale_color_manual(values = c("black", "red", "black")) +
   ggplot2::geom_hline(ggplot2::aes(yintercept = c(95,105), color = "Legal Limits"), linetype = "dotdash")  +
   ggplot2::labs(
-    title = "TABLE XX. Target Population Summary Values",
-    subtitle = "Runs versus 112th Congress",
+    title = "TABLE 4. Target Population Summary Values",
+    subtitle = "Runs versus 117th Congress",
     x = "Summary Value by Run",
     y = "Percentage of District Target Population",
     caption = "Sources: US Census Bureau, 2010 Census"
@@ -1097,8 +1136,6 @@ ggplot2::ggplot() +
     )
 
 ```
-
-Across the `r num_gen_maps` generated maps, the districts created with the largest deviations above and below the target population value were `r gen_maps_min_value_min` (`r gen_maps_min_perc_min`%) and `r gen_maps_max_value_max` (`r gen_maps_max_perc_max`%), respectively. All district populations fell within ±1% of the target population. On average, the median minimum and maximum district population values across the `r num_gen_maps` generated maps were `r gen_maps_min_value_median` (`r gen_maps_min_perc_median`%) and `r gen_maps_max_value_median` (`r gen_maps_max_perc_median`%) individuals, respectively.
 
 ### Race/Ethnicity
 ```{r race_numbers, include=FALSE}
