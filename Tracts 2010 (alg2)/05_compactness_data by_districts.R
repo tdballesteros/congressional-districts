@@ -19,7 +19,7 @@ library(tidyverse)
 ### load data ----------------------------------------------------------------------
 
 # two-digit code for the output file number
-output_number <- "61"
+output_number <- "01"
 
 # assign folder filepaths
 input_folder <- "Tracts 2010 (alg2)/99_Export Data/District Outputs Tracts 2010 v2"
@@ -56,7 +56,7 @@ output <- read.csv(paste0(input_folder,"/output",output_number,".csv"),
 shape_erie_lake <- sf::read_sf("Data/hydro_p_LakeErie/hydro_p_LakeErie.shp") %>%
   sf::st_union() %>%
   sf::st_as_sf() %>%
-  sf::st_sf(crs = "NAD83")
+  sf::st_transform(crs = "NAD83")
 
 
 ### format shapefile ----------------------------------------------------------------------
@@ -67,8 +67,10 @@ shape_tract <- shape_tract %>%
 
 ### format data ----------------------------------------------------------------------
 
-run <- c(61:70) %>%
-  stringr::str_pad(width = 2, side = "left", pad = "0")
+# run <- c(61:70) %>%
+#   stringr::str_pad(width = 2, side = "left", pad = "0")
+
+run <- "01"
 
 for(output_number in run){
 

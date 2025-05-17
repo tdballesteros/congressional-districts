@@ -15,6 +15,9 @@ output: html_document
 library(readxl)
 library(tibble)
 library(hextri)
+library(lwgeom)
+library(ggforce)
+library(patchwork)
 library(beeswarm)
 library(ggbeeswarm)
 library(waffle)
@@ -116,6 +119,12 @@ shape_tract <- sf::read_sf(
   dplyr::rename(Geography = geoid10) %>%
   dplyr::filter(Geography %!in% c("39095990000", "39043990100", "39093990200",
                                   "39035990000", "39085990000", "39007990000"))
+
+## 113th Congress TIGER/Line Shapefile
+# Source: US Census Bureau
+shapefile_113th_congress <- sf::read_sf(
+  dsn = "Data/tl_2013_us_cd113/tl_2013_us_cd113.shp"
+)
 
 ```
 
@@ -724,9 +733,9 @@ results <- results %>%
 ```
 
 ## Introduction
-The United States House of Representatives is composed of 435 voting members, each elected from a single-representative first-past-the-post district. The number of districts a state receives is proportional to its population, with each district within each state and all districts across the country striving to have roughly equal populations.
+The United States House of Representatives is composed of 435 voting members, each elected from a single-representative first-past-the-post district. The number of districts a state receives is proportional to its population, with the process of reapportionment recalculating the number of representatives each state receives based on the decennial census. Updated populations from the census also require updating the borders of districts to account for population changes over the last decade. Districts for the House of Representatives under these new number of districts and population counts are first used two years after the fielding of the decennial census.
 
-For a majority of states, the state must split up its territory into two or more congressional districts. District requirements vary by state, but across all states must be contiguous and all districts in the state must have equal populations (of which states differ on acceptable differences). Building off census tracts, an innumerable combination of congressional districts arise even in states like Idaho or Maine, each of which have two congressional districts. Each state sets its own methods for creating district maps; the methods can emphasize certain aspects, such as requirements for majority-minority districts. Overall, however, the main division to emerge in recent decades is between maps drawn by politically-neutral or politically-balanced committees and those drawn by partisan elected officials.
+For a majority of states, the state must split up its territory into two or more congressional districts. District requirements vary by state, but across all states must be contiguous and all districts in the state must have equal populations. Building off census tracts, an innumerable combination of congressional districts arise even in states like Idaho or Maine, each of which currently have just two congressional districts each. State governments set its own methods for creating district maps; the methods can emphasize certain aspects, such as requirements for majority-minority districts. Overall, however, the main division to emerge in recent decades is between maps drawn by politically-neutral or politically-balanced committees and those drawn by partisan elected officials.
 
 ...
 
@@ -736,7 +745,23 @@ Ohio, a state until recently dubbed a bellwether state for presidential election
 
 ## Methodology
 ### Map Generation
-Congressional district maps for Ohio are procedurally generated, using only United States Census total population counts and geographical information (e.g., tract adjacency). Additional demographic information, namely race and ethnicity data, is intentionally excluded from this study. While using this data is legal - indeed, even required - in some states to ensure majority-minority district requirements are fulfilled, one of my goals is to assess whether the created districts show notable bias against particular groups. Without the inclusion of race and ethnicity, is there potential for an algorithmic approach to district creation to dilute non-white non-Hispanic groups' electoral power? Ohio has only limited ability to test this, with the state being overwhelmingly white, non-Hispanic. Substantial concentrations of other groups, particularly Black, non-Hispanic communities, exist in and around several large cities such as Cleveland, Akron, and Columbus. However, in the case of Ohio, this largely amounts to testing whether and how an algorithm might break up urban areas.
+**Requirements.** While the redistricting process is generally left for each state to determine, elections for federal positions have universal requirements. Additionally, specific rules for congressional districts exist, as these are not statewide elections like senetorial or presidential races. Federal requirements include:^[https://www.congress.gov/crs-product/R45951]
+
+1. *Population Equity*: Within each state, districts must be drawn to approximately equal size populations. District populations may vary across states, however.
+2. *Minority Protections*: Under the Voting Rights Act of 1965, "[n]o voting qualification ... shall be imposed or applied by any State or political subdivision to deny or abridge the right of any citizen of the United States to vote on account of race or color."^[Voting Rights Act, SEC. 2. https://www.archives.gov/milestone-documents/voting-rights-act] This prevents states from drawing district maps that reduce or dilute (minority) racial or ethnic groups.
+
+States often impose additional requirements via their state constitution or through legislative bills. Common requirements include compactness, contiguousness, and preservation of existing subdivisions (e.g., counties or cities). Specifically, Ohio has the following additional requirements:
+
+3. *Compactness*
+4. *Contiguous*
+5. *Political Subdivision*
+6. *Communities of Interest*
+
+The Ohio state legislature is the primary redistricting authority for federal congressional maps. A majority of states have legislature-dominant redistricting methods, though a handful of states utilize commissions or hybrid methods. Beginning in the 2020 redistricting cycle (i.e., applying starting with the 2022 elections) following a 2018 constitutional amendment expands the process and approval steps required to enact a new map, including allowing for the governor to veto the map. Additionally, the law stipulates limitations on dividing counties: 65 counties cannot be divided, 18 can be split between only two districts each, and the five largest counties only amongst three districts.^[https://www.cincinnati.com/story/news/politics/2018/02/06/everyone-complains-gerrymandering-ohio-just-did-something/310438002/]
+
+**Operationalization.** For purposes of this study, several of these requirements are laxed or removed. Equal population requirements, while still being required in this study, are focused on as a measurement of fairness, instead of being a starting point. As Ohio's 2020 constitutional amendment did not cover the 2020 election's congressional districts, rules regarding limits on dividing counties are ignored.
+
+**Procedural Generation.** Congressional district maps for Ohio are procedurally generated, using only United States Census total population counts and geographical information (e.g., tract adjacency). Additional demographic information, namely race and ethnicity data, is intentionally excluded from this study. While using this data is legal - indeed, even required - in some states to ensure majority-minority district requirements are fulfilled, one of my goals is to assess whether the created districts show notable bias against particular groups. Without the inclusion of race and ethnicity, is there potential for an algorithmic approach to district creation to dilute non-white non-Hispanic groups' electoral power? Ohio has only limited ability to test this, with the state being overwhelmingly white, non-Hispanic. Substantial concentrations of other groups, particularly Black, non-Hispanic communities, exist in and around several large cities such as Cleveland, Akron, and Columbus. However, in the case of Ohio, this largely amounts to testing whether and how an algorithm might break up urban areas.
 
 During the 2020 election, Ohio had 16 congressional seats. Leveraging this count as a power of two, my algorithm splits an area into two areas with equal populations; recursively executing this process results in 16 districts. The following steps are conducted to split a geography in two:
 
@@ -771,6 +796,45 @@ knitr::include_graphics(c("methodology_map_step3.png","methodology_map_step4.png
 ```
 
 ### Map Comparison
+```{r methodology_map_comp, echo=FALSE, warning=FALSE, message=FALSE}
+
+# Diversity Index
+ohio_statewide_diversity_index <- population_data %>%
+  dplyr::group_by() %>%
+  dplyr::summarise(across(c(White, Black, Hispanic, AIAN, Asian, NHPI, Other, `Two or More Races`), sum, na.rm = TRUE)) %>%
+  dplyr::ungroup() %>%
+  t() %>%
+  as.data.frame() %>%
+  dplyr::rename(Count = 1) %>%
+  dplyr::mutate(
+    Perc = Count / sum(population_data$Population, na.rm = TRUE),
+    Perc_Squared = Perc^2
+  )
+
+ohio_diversity_index <- 1 - sum(ohio_statewide_diversity_index$Perc_Squared, na.rm = TRUE)
+# 0.3258022
+
+ohio_diversity_index_formatted <- round(ohio_diversity_index, 3)
+
+# White-to-Nonwhite Margin
+ohio_white_to_nonwhite_margin <- 2 * (sum(population_data$White, na.rm = TRUE) /
+                                        sum(population_data$Population, na.rm = TRUE)) - 1
+# 0.6225475
+
+ohio_white_to_nonwhite_margin_formatted <- round(ohio_white_to_nonwhite_margin, 3)
+
+# OH-03 Compactness Values
+compactness_methodology_df <- compactness_data_actual %>%
+  dplyr::filter(
+    `Congressional.Session` == 113,
+    District == "Congressional District 3"
+  )
+
+compactness1_oh03 <- as.numeric(compactness_methodology_df$Compactness.Polsby.Popper)
+compactness2_oh03 <- as.numeric(compactness_methodology_df$Compactness.Schwartzberg)
+compactness3_oh03 <- as.numeric(compactness_methodology_df$Compactness.Reock)
+
+```
 
 To test whether an algorithm randomly constructing congressional districts within the typical confines - contiguous, equal populations - I use Ohio as an example. Using the post-2010 United States Census redistricting, population data from 2010 is used in conjunction with Ohio's 2020 election results, which use districts based on the 2010 Census. Results will be compared across four aspects, with multiple specific metrics compared within these aspects:
 
@@ -780,6 +844,8 @@ To test whether an algorithm randomly constructing congressional districts withi
 + *Relative District Competitiveness*, taking party leaning into consideration in addition to the scale of the win margin.
 2. **Population**: Verifying whether the maps fulfill equal population requirements and comparing to the 113th Congress's district populations.
 3. **Race/Ethnicity**: Assessing racial and ethnic group distribution across the districts and compared to districts for the 113th Congress's racial and ethnic spread.
++ *Diversity Index*
++ *White % vs Non-White %*
 4. **District Compactness**: Utilizing several operationalisations of district compactness.
 
 **Partisanship.** To compare partisanship with the actual results, the *Allocation of Seats Won*, the *Absolute District Competitiveness*, and the *Relative District Competitiveness* are compared against the 2020 election results. Using RDH's estimated 2020 election results redistributed by census tract, the number of votes within the 2020 presidential election are used as a proxy for congressional voting intention.
@@ -804,13 +870,151 @@ Both these metrics emulate district leaning metrics such as the Cook Political S
 
 For purposes of comparing these partisan metrics to actual and theoretical results, distributions of seats closer to proportional representation and more competitive districts are seen as a better outcome. While normative, these have support in theoretical and empirical election research.
 
-**Population.** District population results are compared to the actual district populations and the actual equal population distribution. For each map, the median, minimum, and maximum district populations are compared to the same summary values of districts in the 117th Congress. These values are additionally compared to $P_{16} = 721,032$, one-sixteenth of Ohio's population as tabulated in the 2010 Census.
+**Population.** District population results are compared to the actual district populations and the actual equal population distribution. For each map, the median, minimum, and maximum district populations are compared to the same summary values of districts in the 117th Congress. These values are additionally compared to $P_{16} =$ 721,032, one-sixteenth of Ohio's population as tabulated in the 2010 Census.
 
-**Race and Ethnicity.**
+**Race and Ethnicity.** Multiple metrics are used to determine the racial and ethnic composition - ethnic here referring to Hispanic or non-Hispanic. This is done to determine if the procedurally generated maps are incorporating racial bias (either in violation of state or federal law or otherwise biased). Two key metrics are used: the *Diversity Index* and the *White-to-Nonwhite Margin*. Populations are grouped across eight common racial and ethnic categories, as derived from Census data: White, non-Hispanic; Black, non-Hispanic; Hispanic of any race; Asian, non-Hispanic; Native Hawaiian or Pacific Islander (NHPI), non-Hispanic; American Indian or Alaskan Native (AIAN), non-Hispanic; other race, non-Hispanic; and two or more races.
 
-**District Compactness.**
+The *Diversity Index* is a commonly used measurement calculating the racial/ethnic diversity within a given area, including use by the United States Census Bureau.^["Racial and Ethnic Diversity in the United States: 2010 Census and 2020 Census", United States Census Bureau. https://www.census.gov/library/visualizations/interactive/racial-and-ethnic-diversity-in-the-united-states-2010-and-2020-census.html] Specifically here, the Gini-Simpson index is used, defined as $D = 1 - \sum_{}^{} \rho_{i}^{2}$, where $\rho_{i}$ is the proportion of the population belonging to each of the eight race/ethnicity groupings. This value corresponds with the probability that any two individuals drawn from the population at random will be of different race/ethnic groups. A higher index score indicates greater diversity; for a calculation with eight groups, the highest possible score is 0.875. A score of 0 indicates the entire population belongs to the same race/ethnic group. The state-wide Diversity Index score for Ohio based on the 2010 Census is $D_{OH} =$ `r ohio_diversity_index_formatted`.
+
+Similarly, the *White-to-Nonwhite Margin* measures the racial/ethnic diversity of a population considering only two groups: White, non-Hispanic and non-White (including White, Hispanic). This metric is calculated as $W = \rho_{w} - \sum_{}^{} \rho_{j}$, where $\rho_{w}$ is the proportion of White, non-Hispanic individuals in the population and $\rho_{j}$ are the proportions of all the other racial/ethnic groups. This can be rewritten as $W = 2\rho_{w} - 1$, as all individuals are assigned to one of the eight groups. The Ohio-wide White-to-Nonwhite Margin is $W_{OH} =$ `r ohio_white_to_nonwhite_margin_formatted`. This corresponds to a `r round(100 * (ohio_white_to_nonwhite_margin + 1) / 2, 1)`% White, Non-Hispanic population and a `r round(100 - (100 * (ohio_white_to_nonwhite_margin + 1) / 2), 1)`% non-White population.
+
+**District Compactness.** Several calculations of district compactness are used, with all measuring how geographically concentrated the district is. The more round a district is (i.e., minimizing the distance of each census tract from the center of the district), the more compact a district is. Specific measurements operationalise this differently.
+
+The *Polsby-Popper* (PP) compactness score is the ratio of the district's area ($A_{D}$) to the area of a circle whose circumference is equal to the perimeter of the district: $C_{PP} = 4\pi\frac{A_{D}}{P^{2}_{D}}$, with $P_{D}$ being the perimeter of the district. The scores range 0 to 1, with a higher score indicating greater compactness.
+
+The *Schwartzberg* compactness score is the ratio of the circumference of a circle whose area is equal to the area of the district to the perimeter of the district ($P_{D}$): $C_{S} = \frac{2\pi\sqrt{A_{D}/\pi}}{P_{D}}$, where $A_{D}$ is the area of the district. This score also ranges from 0 to 1, with a higher score indicating a more compact district.
+
+A third measure of compactness, the *Reock* compactness score, is the ratio of the area of a district ($A_{D}$) to the area of the minimum bounding circle ($A_{MBC}$) that encloses the district: $C_{R} = \frac{A_{D}}{A_{MBC}}$. The score ranges from 0 to 1, with a score closer to 1 indicating a more compact district.
+
+Below shows the three different methodologies applied to Ohio's 3rd Congressional District, centered around Columbus. The compactness scores for this district are $C_{PP,03} =$ `r round(compactness1_oh03, 3)`, $C_{S,03} =$ `r round(compactness2_oh03, 3)`, $C_{R,03} =$ `r round(compactness3_oh03, 3)`.
+
+```{r compactness_methodology, echo=FALSE, message=FALSE, fig.align='center'}
+
+# select OH-03 from the 113th Congress shapefile
+
+oh03_shapefile <- shapefile_113th_congress %>%
+  dplyr::filter(
+    STATEFP == 39,
+    `CD113FP` == "03"
+    )
+
+# calculate centroid, area, and perimeter
+centroid <- sf::st_centroid(oh03_shapefile$geometry)
+district_area <- sf::st_area(oh03_shapefile$geometry)
+district_perimeter <- sf::st_perimeter(oh03_shapefile$geometry)
+
+# calculate the radius of bounding circles
+radius_pp <- as.numeric(district_perimeter) / (2 * pi)
+radius_schwartzberg <- sqrt(district_area / pi)
+
+centroid_coord <- data.frame(ID = "PP",
+                             latitude = centroid[[1]][1],
+                             longitude = centroid[[1]][2])
+
+make_circles <- function(centers, radius, nPoints = 100){
+    # centers: the data frame of centers with ID
+    # radius: radius measured in kilometer
+    #
+    meanLat <- mean(centers$latitude)
+    # length per longitude changes with latitude, so need correction
+    radiusLon <- radius /111 / cos(meanLat/57.3) 
+    radiusLat <- radius / 111
+    circleDF <- data.frame(ID = rep(centers$ID, each = nPoints))
+    angle <- seq(0,2*pi,length.out = nPoints)
+
+    circleDF$lon <- unlist(lapply(centers$longitude, function(x) x + radiusLon * cos(angle)))
+    circleDF$lat <- unlist(lapply(centers$latitude, function(x) x + radiusLat * sin(angle)))
+    return(circleDF)
+}
+
+
+plot_circle_approx <- function(lat, long, radius, npoints = 1000){
+  
+  # length per longitude changes with latitude, so need correction
+  radius_long <- radius / 111 / cos(lat / 57.3)
+  radius_lat <- radius / 111
+  
+  angle <- seq(0, 2*pi, length.out = npoints)
+  
+  df_long <- unlist(lapply(long, function(x) x + radius_long * cos(angle)))
+  df_lat <- unlist(lapply(lat, function(x) x + radius_lat * cos(angle)))
+  
+  df <- data.frame(long = df_long,
+                   lat = df_lat)
+  
+  return(df)
+                    
+}
+
+
+x <- plot_circle_approx(centroid[[1]][2], centroid[[1]][1], (radius_pp/1000))
+
+y <- sfheaders::sf_multipolygon(
+  obj = x,
+  # polygon_id = "pp_circle",
+  x = "long",
+  y = "lat"
+)
+
+# here is the data frame for all circles
+myCircles <- make_circles(centroid_coord, (radius_pp/1000))
+
+circle_pp2 <- sfheaders::sf_polygon(
+  obj = myCircles,
+  x = "lat",
+  y = "lon"
+) %>%
+  sf::st_set_crs("NAD83")
+
+
+
+
+# construct the circles
+circle_pp <- sf::st_buffer(centroid, dist = radius_pp, nQuadSegs = 2000)
+circle_schwartzberg <- sf::st_buffer(centroid, dist = radius_schwartzberg, nQuadSegs = 200)
+circle_reock <- lwgeom::st_minimum_bounding_circle(oh03_shapefile$geometry)
+
+# POLSBY-POPPER
+bounding1 <- ggplot2::ggplot() +
+  ggplot2::geom_sf(data = oh03_shapefile,
+                   ggplot2::aes(fill = "STATEFP")) +
+  ggplot2::scale_fill_manual(values = "darkred") +
+  # geom_sf(data = circle_pp, color = "black", fill = NA, linewidth = 1) + # Plot the circles
+  # geom_polygon(data = myCircles, ggplot2::aes(x = lon, y = lat, group = 1), color = "black", fill = NA, linewidth = 1) + # Plot the circles
+  geom_sf(data = circle_pp, color = "black", fill = NA, linewidth = 1) + # Plot the circles
+  labs(title = "Polsby-Popper") +
+  ggplot2::theme_void() +
+  theme(plot.title = element_text(hjust = 0.5, face = "bold")) + # Center and bold the title
+  ggplot2::guides(fill = "none")
+
+# SCHWARTZBERG
+bounding2 <- ggplot2::ggplot() +
+  ggplot2::geom_sf(data = oh03_shapefile,
+                   ggplot2::aes(fill = "STATEFP")) +
+  ggplot2::scale_fill_manual(values = "darkred") +
+  geom_sf(data = circle_schwartzberg, color = "black", fill = NA, linewidth = 1) + # Plot the circles
+  labs(title = "Schwartzberg") +
+  ggplot2::theme_void() +
+  theme(plot.title = element_text(hjust = 0.5, face = "bold")) + # Center and bold the title
+  ggplot2::guides(fill = "none")
+  
+# REOCK
+bounding3 <- ggplot2::ggplot() +
+  ggplot2::geom_sf(data = oh03_shapefile,
+                   ggplot2::aes(fill = "STATEFP")) +
+  ggplot2::scale_fill_manual(values = "darkred") +
+  geom_sf(data = circle_reock, color = "black", fill = NA, linewidth = 1) + # Plot the circles
+  labs(title = "Reock") +
+  ggplot2::theme_void() +
+  theme(plot.title = element_text(hjust = 0.5, face = "bold")) + # Center and bold the title
+  ggplot2::guides(fill = "none")
+
+bounding1 + bounding2 + bounding3
+
+```
 
 ## Findings
+
 ### Partisanship
 ```{r partisanship, include=FALSE}
 
@@ -890,7 +1094,7 @@ win_margin_relative_max <- lapply(win_margins, max) %>% unlist()
 
 Table 1 shows the frequencies for each number of seats won by party per procedurally generated map. Values for the actual 117th Congress seat allocation $S_{R1} = 12$ and $S_{D1} = 4$ are shown as black dashed lines, while the theoretical PR seat allocations $S_{R2} = 9$ and $S_{D2} = 7$ are shown as gray dotted lines.
 
-```{r winner_frequency_plot, echo=FALSE, warning=FALSE}
+```{r winner_frequency_plot, echo=FALSE, warning=FALSE, fig.align='center'}
 
 ggplot2::ggplot() +
   ggplot2::geom_histogram(data = winners_by_run_long,
@@ -1284,9 +1488,8 @@ diversity_index_df <- data.frame(
 
 ```
 
-The Diversity Index is a commonly used measurement calculating the racial/ethnic diversity within a given area, including use by the United States Census Bureau.^["Racial and Ethnic Diversity in the United States: 2010 Census and 2020 Census", United States Census Bureau. https://www.census.gov/library/visualizations/interactive/racial-and-ethnic-diversity-in-the-united-states-2010-and-2020-census.html] The Diversity Index is defined as $D = 1 - \sum_{}^{} \rho_{i}^{2}$, where $\rho_{i}$ is the proportion of the population belonging to each of the eight race/ethnicity groupings. A higher index score indicates greater diversity.
 
-Table XX shows summary statistics for district diversity indices along with summary statistics for the 113th Congress. Ohio's state-wide Diversity Index, $D_{OH} = 0.326$, is shown as a red dashed line. Points above this line are more racially/ethnically diverse than Ohio overall, while points below this line are less so.
+Table 5 shows summary statistics for district diversity indices along with summary statistics for the 113th Congress. Ohio's state-wide Diversity Index, $D_{OH} =$ `r ohio_diversity_index_formatted`, is shown as a red dashed line. Points above this line are more racially/ethnically diverse than Ohio overall, while points below this line are less so. The closer the point is to the dashed line, the more similar its racial/ethnic diversity is to the statewide diversity.
 
 Looking at the minimum and maximum Diversity Index scores by map, lower minimum values and higher maximum values are a potential indication of packing or cracking racial groups. This may be done unintentionally, it may be unavoidable due to the distribution of racial and ethnic groups, or it may be done intentionally in the case of majority-minority districts.
 
@@ -1298,7 +1501,7 @@ ggplot2::ggplot() +
   ggplot2::scale_color_manual(values = c("black", "red", "blue", "black")) +
   ggplot2::geom_hline(ggplot2::aes(yintercept = ohio_diversity_index, color = "Ohio Avg."), linetype = "dotdash")  +
   ggplot2::labs(
-    title = "TABLE XX. Diversity Index Summary Values",
+    title = "TABLE 5. Diversity Index Summary Values",
     subtitle = "Run Averages versus 113th Congress",
     x = "Summary Value by Run",
     y = "Diversity Index Value",
@@ -1311,9 +1514,39 @@ ggplot2::ggplot() +
   
 ```
 
+test below
+
+```{r test, echo=FALSE}
+
+# beeswarm of all districts - white % minus non-white %
+diversity_index_all_df <- data.frame(Group = "Runs",
+                                          value = unlist(diversity_index_values)) %>%
+  rbind(data.frame(Group = "Actual",
+                   value = c(census_data_113th$`Diversity Index`))) %>%
+  dplyr::mutate(Group = factor(Group, levels = c("Runs", "Actual")))
+
+ggplot2::ggplot() +
+  ggbeeswarm::geom_beeswarm(data = diversity_index_all_df,
+                            ggplot2::aes(x = Group, y = value, color = Group)) +
+  ggplot2::scale_color_manual(values = c("black", "red", "black")) +
+  ggplot2::geom_hline(ggplot2::aes(yintercept = ohio_diversity_index, color = "Ohio Avg."), linetype = "dotdash") +
+  ggplot2::labs(
+    title = "TABLE XX. Diversity Index Values",
+    subtitle = "Runs versus 117th Congress",
+    x = "Runs vs. Actual Values",
+    y = "Index Score",
+    caption = "Sources: US Census Bureau, 2010 Census"
+  ) +
+  ggplot2::theme_light() +
+  ggplot2::theme(
+    axis.ticks.x = element_blank()
+  )
+
+```
+
 Another prominent measurement of racial/ethnic distribution is calculating the difference in the proportion of non-Hispanic White individuals versus non-White individuals.
 
-```{r white_minus_nonwhite_perc, include=FALSE}
+```{r white_to_nonwhite_margin, echo=FALSE}
 
 # White % - Non-White % summary values by map
 white_minus_nonwhite_values_mean <- lapply(white_minus_nonwhite_values, mean) %>% unlist()
@@ -1362,13 +1595,16 @@ ggplot2::ggplot() +
   ggplot2::scale_color_manual(values = c("black", "red", "black")) +
   ggplot2::geom_hline(ggplot2::aes(yintercept = ohio_white_minus_nonwhite, color = "Ohio Avg."), linetype = "dotdash")  +
   ggplot2::labs(
-    title = "TABLE XX. White % Minus Non-White % Summary Values",
-    subtitle = "Run Averages versus 112th Congress",
+    title = "TABLE 6. White-to-Nonwhite Summary Values",
+    subtitle = "Run Averages versus 117th Congress",
     x = "Summary Value by Run",
-    y = "Percentage Value",
-    caption = "Sources: US Census Bureau, 2010 Census;\nAmerican Community Survey (ACS), 2012\nNote: Ethnicity data not included"
+    y = "Margin Percentage Point Value",
+    caption = "Sources: US Census Bureau, 2010 Census"
   ) +
   ggplot2::theme_light()
+
+```
+```{r more, echo=FALSE}
 
 
 # beeswarm of all districts - white % minus non-white %
@@ -1384,11 +1620,11 @@ ggplot2::ggplot() +
   ggplot2::scale_color_manual(values = c("black", "red", "black")) +
   ggplot2::geom_hline(ggplot2::aes(yintercept = ohio_white_minus_nonwhite, color = "Ohio Avg."), linetype = "dotdash") +
   ggplot2::labs(
-    title = "White % Minus Non-White % Summary Values",
-    subtitle = "Runs versus 112th Congress",
-    x = "Summary Value",
-    y = "Percentage Value",
-    caption = "Sources: US Census Bureau, 2010 Census;\nAmerican Community Survey (ACS), 2012\nNote: Ethnicity data not included"
+    title = "TABLE 7. White-to-Nonwhite Margin Values",
+    subtitle = "Runs versus 117th Congress",
+    x = "Runs vs. Actual Values",
+    y = "Margin Percentage Point Value",
+    caption = "Sources: US Census Bureau, 2010 Census"
   ) +
   ggplot2::theme_light() +
   ggplot2::theme(
@@ -1397,61 +1633,90 @@ ggplot2::ggplot() +
 
 ```
 
-
-```{r columbus_race, include=FALSE}
-
-# # pull 112th congress Columbus area boundary
-# columbus_112 <- ohio_112th_shapefile %>%
-#   dplyr::filter(NAMELSAD %in% c("Congressional District 7", "Congressional District 12", "Congressional District 15"))
-# 
-# # create map
-# map <- ggplot2::ggplot() +
-#   # st_crop(xlim = c(82.5, 83.5), ylim = c(39.5, 40.5)) +
-#   ggplot2::geom_sf(data = population_data,
-#                    ggplot2::aes(fill = `Non-White Percentage`), lwd = 0) +
-#   ggplot2::scale_fill_distiller(palette = "YlOrRd") +
-#   ggplot2::geom_sf(data = columbus_112, fill = NA, color = "#000000") +
-#   coord_sf(xlim = c(-82.6, -83.25), ylim = c(39.75, 40.25), expand = FALSE)
-# 
-# 
-# map
-# 
-# 
-# mapview(population_data, zcol = "Non-White Perc")
-
-```
-
 ### District Compactness
 ```{r compactness_general, include=FALSE}
 
 ### compare averages ----------------------------------------------------------------------
-average_polsby_popper <- c()
-average_schwartzberg <- c()
-average_reock <- c()
+compactness_polsby_popper_summary <- data.frame()
+compactness_schwartzberg_summary <- data.frame()
+compactness_reock_summary <- data.frame()
 
 for(l in 1:length(compactness_data)){
   
   tmp <- compactness_data[[l]]
   
-  average_polsby_popper <- c(average_polsby_popper,
-                             mean(tmp$Compactness.Polsby.Popper, na.rm = TRUE))
-  average_schwartzberg <- c(average_polsby_popper,
-                            mean(tmp$Compactness.Schwartzberg, na.rm = TRUE))
-  average_reock <- c(average_polsby_popper,
-                     mean(tmp$Compactness.Reock, na.rm = TRUE))
+  # Polsby Popper
+  tmp_pp_min <- min(tmp$`Compactness Polsby Popper`, na.rm = TRUE)
+  tmp_pp_max <- max(tmp$`Compactness Polsby Popper`, na.rm = TRUE)
+  tmp_pp_mean <- mean(tmp$`Compactness Polsby Popper`, na.rm = TRUE)
+  tmp_pp_median <- median(tmp$`Compactness Polsby Popper`, na.rm = TRUE)
+  
+  compactness_polsby_popper_summary[l, 1] <- tmp_pp_min
+  compactness_polsby_popper_summary[l, 2] <- tmp_pp_max
+  compactness_polsby_popper_summary[l, 3] <- tmp_pp_mean
+  compactness_polsby_popper_summary[l, 4] <- tmp_pp_median
+  
+  # Schwartzberg
+  tmp_sch_min <- min(tmp$`Compactness Schwartzberg`, na.rm = TRUE)
+  tmp_sch_max <- max(tmp$`Compactness Schwartzberg`, na.rm = TRUE)
+  tmp_sch_mean <- mean(tmp$`Compactness Schwartzberg`, na.rm = TRUE)
+  tmp_sch_median <- median(tmp$`Compactness Schwartzberg`, na.rm = TRUE)
+  
+  compactness_schwartzberg_summary[l, 1] <- tmp_sch_min
+  compactness_schwartzberg_summary[l, 2] <- tmp_sch_max
+  compactness_schwartzberg_summary[l, 3] <- tmp_sch_mean
+  compactness_schwartzberg_summary[l, 4] <- tmp_sch_median
+  
+  # Reock
+  tmp_reock_min <- min(tmp$`Compactness Reock`, na.rm = TRUE)
+  tmp_reock_max <- max(tmp$`Compactness Reock`, na.rm = TRUE)
+  tmp_reock_mean <- mean(tmp$`Compactness Reock`, na.rm = TRUE)
+  tmp_reock_median <- median(tmp$`Compactness Reock`, na.rm = TRUE)
+  
+  compactness_reock_summary[l, 1] <- tmp_reock_min
+  compactness_reock_summary[l, 2] <- tmp_reock_max
+  compactness_reock_summary[l, 3] <- tmp_reock_mean
+  compactness_reock_summary[l, 4] <- tmp_reock_median
   
 }
 
-# actual scores by congressional session
-average_compactness_scores_actual <- compactness_data_actual %>%
-  dplyr::group_by(Congressional.Session) %>%
-  dplyr::summarise(
-    Compactness.Polsby.Popper = mean(Compactness.Polsby.Popper, na.rm = TRUE),
-    Compactness.Schwartzberg = mean(Compactness.Schwartzberg, na.rm = TRUE),
-    Compactness.Reock = mean(Compactness.Reock, na.rm = TRUE)
-  ) %>%
-  dplyr::ungroup()
+names(compactness_polsby_popper_summary) <- c("Min", "Max", "Mean", "Median")
+names(compactness_schwartzberg_summary) <- c("Min", "Max", "Mean", "Median")
+names(compactness_reock_summary) <- c("Min", "Max", "Mean", "Median")
 
+compactness_pp_summary_long <- compactness_polsby_popper_summary %>%
+  tidyr::pivot_longer(1:4,
+                      names_to = "Variable",
+                      values_to = "Value") %>%
+  dplyr::mutate(Group = "run")
+
+compactness_sch_summary_long <- compactness_schwartzberg_summary %>%
+  tidyr::pivot_longer(1:4,
+                      names_to = "Variable",
+                      values_to = "Value") %>%
+  dplyr::mutate(Group = "run")
+
+compactness_reock_summary_long <- compactness_reock_summary %>%
+  tidyr::pivot_longer(1:4,
+                      names_to = "Variable",
+                      values_to = "Value") %>%
+  dplyr::mutate(Group = "run")
+
+ggplot2::ggplot() +
+  ggbeeswarm::geom_beeswarm(data = compactness_reock_summary_long,
+                            ggplot2::aes(x = Variable, y = Value, color = Group)) +
+  ggplot2::scale_color_manual(values = c("black", "red", "black")) +
+  ggplot2::labs(
+    title = "TABLE XX. PP Compactness",
+    subtitle = "Runs versus 117th Congress",
+    x = "Runs vs. Actual Values",
+    y = "Margin Percentage Point Value",
+    caption = "Sources: US Census Bureau, 2010 Census"
+  ) +
+  ggplot2::theme_light() +
+  ggplot2::theme(
+    axis.ticks.x = element_blank()
+  )
 
 ```
 
