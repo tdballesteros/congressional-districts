@@ -1634,7 +1634,7 @@ ggplot2::ggplot() +
 ```
 
 ### District Compactness
-```{r compactness_general, include=FALSE}
+```{r compactness_general, echo=FALSE}
 
 ### compare averages ----------------------------------------------------------------------
 compactness_polsby_popper_summary <- data.frame()
@@ -1688,35 +1688,155 @@ compactness_pp_summary_long <- compactness_polsby_popper_summary %>%
   tidyr::pivot_longer(1:4,
                       names_to = "Variable",
                       values_to = "Value") %>%
-  dplyr::mutate(Group = "run")
+  dplyr::mutate(Group = "Runs")
 
 compactness_sch_summary_long <- compactness_schwartzberg_summary %>%
   tidyr::pivot_longer(1:4,
                       names_to = "Variable",
                       values_to = "Value") %>%
-  dplyr::mutate(Group = "run")
+  dplyr::mutate(Group = "Runs")
 
 compactness_reock_summary_long <- compactness_reock_summary %>%
   tidyr::pivot_longer(1:4,
                       names_to = "Variable",
                       values_to = "Value") %>%
-  dplyr::mutate(Group = "run")
+  dplyr::mutate(Group = "Runs")
+
+
+# 117th Congress Scores
+compactness_117 <- compactness_data_actual %>%
+  dplyr::filter(`Congressional.Session` == 113)
+
+compactness_117_pp <- compactness_117 %>%
+  dplyr::pull(`Compactness.Polsby.Popper`)
+
+compactness_117_sch <- compactness_117 %>%
+  dplyr::pull(`Compactness.Schwartzberg`)
+
+compactness_117_reock <- compactness_117 %>%
+  dplyr::pull(`Compactness.Reock`)
+
+# append 117th Congress data to run data
+
+compactness_pp_summary_long <- compactness_pp_summary_long %>%
+  rbind(
+    data.frame(
+      Variable = c("Min", "Max", "Mean", "Median"),
+      Value = c(min(compactness_117_pp, na.rm = TRUE),
+                 max(compactness_117_pp, na.rm = TRUE),
+                 mean(compactness_117_pp, na.rm = TRUE),
+                 median(compactness_117_pp, na.rm = TRUE)),
+      Group = rep("Actual", 4)
+    )) %>%
+  dplyr::mutate(Variable = factor(Variable, levels = c("Min",
+                                                       "Max",
+                                                       "Mean",
+                                                       "Median")),
+                Group = factor(Group, levels = c("Runs",
+                                                 "Actual")))
+
+compactness_sch_summary_long <- compactness_sch_summary_long %>%
+  rbind(
+    data.frame(
+      Variable = c("Min", "Max", "Mean", "Median"),
+      Value = c(min(compactness_117_sch, na.rm = TRUE),
+                 max(compactness_117_sch, na.rm = TRUE),
+                 mean(compactness_117_sch, na.rm = TRUE),
+                 median(compactness_117_sch, na.rm = TRUE)),
+      Group = rep("Actual", 4)
+    )) %>%
+  dplyr::mutate(Variable = factor(Variable, levels = c("Min",
+                                                       "Max",
+                                                       "Mean",
+                                                       "Median")),
+                Group = factor(Group, levels = c("Runs",
+                                                 "Actual")))
+
+compactness_reock_summary_long <- compactness_reock_summary_long %>%
+  rbind(
+    data.frame(
+      Variable = c("Min", "Max", "Mean", "Median"),
+      Value = c(min(compactness_117_reock, na.rm = TRUE),
+                 max(compactness_117_reock, na.rm = TRUE),
+                 mean(compactness_117_reock, na.rm = TRUE),
+                 median(compactness_117_reock, na.rm = TRUE)),
+      Group = rep("Actual", 4)
+    )) %>%
+  dplyr::mutate(Variable = factor(Variable, levels = c("Min",
+                                                       "Max",
+                                                       "Mean",
+                                                       "Median")),
+                Group = factor(Group, levels = c("Runs",
+                                                 "Actual")))
+
+```
+Congressional districts in Ohio for the 117th Congress had several low-compact districts, notably the 9th, 11th, and 13th Districts. Of note, all three of these districts were won by Democrats in 2020. Ohio's 5th congressional district was the most compact across all three measurements.
+
+**Polsby Popper.**
+
+```{r compactness_pp_plot, echo=FALSE}
+
+ggplot2::ggplot() +
+  ggbeeswarm::geom_beeswarm(data = compactness_pp_summary_long,
+                            ggplot2::aes(x = Variable, y = Value, color = Group)) +
+  ggplot2::scale_color_manual(values = c("black", "red", "black")) +
+  ggplot2::labs(
+    title = "TABLE XX. Polsby Popper Compactness Scores",
+    subtitle = "Runs versus 117th Congress",
+    x = "Runs vs. Actual Values",
+    y = "Polsby Popper Score",
+    caption = "Sources: US Census Bureau, 2010 Census"
+  ) +
+  ggplot2::theme_light() +
+  ggplot2::theme(
+    axis.ticks.x = element_blank()
+  ) +
+  ylim(0, 1)
+
+```
+
+**Schwartzberg.**
+
+```{r compactness_sch_plot, echo=FALSE}
+
+ggplot2::ggplot() +
+  ggbeeswarm::geom_beeswarm(data = compactness_sch_summary_long,
+                            ggplot2::aes(x = Variable, y = Value, color = Group)) +
+  ggplot2::scale_color_manual(values = c("black", "red", "black")) +
+  ggplot2::labs(
+    title = "TABLE XX. Schwertzberg Compactness Scores",
+    subtitle = "Runs versus 117th Congress",
+    x = "Runs vs. Actual Values",
+    y = "Schwertzberg Score",
+    caption = "Sources: US Census Bureau, 2010 Census"
+  ) +
+  ggplot2::theme_light() +
+  ggplot2::theme(
+    axis.ticks.x = element_blank()
+  ) +
+  ylim(0, 1)
+
+```
+
+**Reock.**
+
+```{r compactness_reock_plot, echo=FALSE}
 
 ggplot2::ggplot() +
   ggbeeswarm::geom_beeswarm(data = compactness_reock_summary_long,
                             ggplot2::aes(x = Variable, y = Value, color = Group)) +
   ggplot2::scale_color_manual(values = c("black", "red", "black")) +
   ggplot2::labs(
-    title = "TABLE XX. PP Compactness",
+    title = "TABLE XX. Reock Compactness Scores",
     subtitle = "Runs versus 117th Congress",
     x = "Runs vs. Actual Values",
-    y = "Margin Percentage Point Value",
+    y = "Reock Score",
     caption = "Sources: US Census Bureau, 2010 Census"
   ) +
   ggplot2::theme_light() +
   ggplot2::theme(
     axis.ticks.x = element_blank()
-  )
+  ) +
+  ylim(0, 1)
 
 ```
-

@@ -67,13 +67,16 @@ shape_tract <- shape_tract %>%
 
 ### format data ----------------------------------------------------------------------
 
-# run <- c(61:70) %>%
-#   stringr::str_pad(width = 2, side = "left", pad = "0")
-
-run <- "01"
+run <- c(6:70) %>%
+  stringr::str_pad(width = 2, side = "left", pad = "0")
 
 for(output_number in run){
 
+  ## Output Data
+  # The output CSV file from the random districts tracts 2010 script
+  output <- read.csv(paste0(input_folder,"/output",output_number,".csv"),
+                     colClass = "character") %>%
+    dplyr::select(Geography,district)
 
 area <- shape_tract %>%
   dplyr::left_join(output, by = "Geography") %>%
@@ -119,7 +122,7 @@ compactness_by_district <- district_map_shapefile %>%
     `Compactness Schwartzberg` = 1 / (`District Perimeter` / (2 * pi * sqrt(`District Area` / pi))),
     `Compactness Schwartzberg` = as.numeric(`Compactness Schwartzberg`),
     # Reock compactness score
-    # The Reock Score is the ratio of the area of the district to the area of a minimum bounding cirle
+    # The Reock Score is the ratio of the area of the district to the area of a minimum bounding circle
     # that encloses the district’s geometry. A district’s Reock score falls within the range of [0,1] and
     # a score closer to 1 indicates a more compact district.
     minimum_bounding_circle = lwgeom::st_minimum_bounding_circle(geometry),
