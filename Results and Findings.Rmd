@@ -1131,7 +1131,7 @@ The 2020 congressional election results saw district win margins ranging from `r
 
 Table 2 shows summary statistics calculated for each run, with the 117th Congress's results shown in red. For mean and median results, a higher value indicates the average district within that map of 16 districts is more partisan. For minimum results, a higher value indicates the least partisan district (i.e., the most competitive district) is more partisan (less competitive); for maximum results, a lower value indicates the most partisan district (i.e., the "safest" district) is less partisan (more competitive). Overall, lower values indicate higher electoral competitiveness.
 
-```{r district_competitiveness_absolute, echo=FALSE}
+```{r district_competitiveness_absolute, echo=FALSE, fig.align='center'}
 
 win_margin_absolute_df <- data.frame(
   run = c(1:length(win_margin_absolute_median)),
@@ -1184,7 +1184,7 @@ Of particular note here is the relatively high partisan leanings of the actual c
 
 **Relative Win Margin.** Across the `r nrow(winners_by_run)` runs, the median relative win margin was `r round(median(win_margin_relative_median), 1)`% points, or `r abs(round(median(win_margin_relative_median), 0))`% points favoring Republicans.
 
-```{r district_competitiveness_relative, echo=FALSE}
+```{r district_competitiveness_relative, echo=FALSE, fig.align='center'}
 
 win_margin_relative_df <- data.frame(
   run = c(1:length(win_margin_relative_median)),
@@ -1296,7 +1296,7 @@ For Ohio's redrawing following the 2010 Census, each district was expected to ha
 
 Table 4 shows the smallest and largest districts by population for each of the `r nrow(winners_by_run)` procedurally generated maps as percentages of $P_{16}$. The smallest and largest district populations for the 117th congress are also shown.
 
-```{r target_population, echo=FALSE}
+```{r target_population, echo=FALSE, fig.align='center'}
 
 target_pop_df <- data.frame(
   run = c(1:length(population_target_ratio_values_min)),
@@ -1425,7 +1425,7 @@ States are forbidden from use race or ethnicity to politically disadvantage one 
 
 Overall, Ohio's population according to the 2010 Census was `r ohio_white_perc`% White, `r ohio_black_perc`% Black, `r ohio_hispanic_perc`% Hispanic, `r ohio_asian_perc`% Asian, `r ohio_aian_perc`% American Indian or Alaskan Native (AIAN), `r ohio_nhpi_perc`% Native Hawaiian or Pacific Islander (NHPI), `r ohio_other_perc`% other race, and `r ohio_twoormore_perc`% individuals identifying as two or more races. (Note Hispanic includes all individuals identifying as Hispanic regardless of racial identification. All race categories are for non-Hispanic individuals.) The proportion of individuals identifying as non-White in Ohio is `r ohio_nonwhite_perc`%.
 
-```{r ohio_total_pop_waffle, echo=FALSE}
+```{r ohio_total_pop_waffle, echo=FALSE, fig.align='center'}
 
 waffle::waffle(
   ohio_total_race_props,
@@ -1493,7 +1493,7 @@ Table 5 shows summary statistics for district diversity indices along with summa
 
 Looking at the minimum and maximum Diversity Index scores by map, lower minimum values and higher maximum values are a potential indication of packing or cracking racial groups. This may be done unintentionally, it may be unavoidable due to the distribution of racial and ethnic groups, or it may be done intentionally in the case of majority-minority districts.
 
-```{r diversity_index_plot, echo=FALSE}
+```{r diversity_index_plot, echo=FALSE, fig.align='center'}
 
 ggplot2::ggplot() +
   ggbeeswarm::geom_beeswarm(data = diversity_index_df,
@@ -1514,9 +1514,8 @@ ggplot2::ggplot() +
   
 ```
 
-test below
 
-```{r test, echo=FALSE}
+```{r test, echo=FALSE, fig.align='center'}
 
 # beeswarm of all districts - white % minus non-white %
 diversity_index_all_df <- data.frame(Group = "Runs",
@@ -1546,7 +1545,7 @@ ggplot2::ggplot() +
 
 Another prominent measurement of racial/ethnic distribution is calculating the difference in the proportion of non-Hispanic White individuals versus non-White individuals.
 
-```{r white_to_nonwhite_margin, echo=FALSE}
+```{r white_to_nonwhite_margin, echo=FALSE, fig.align='center'}
 
 # White % - Non-White % summary values by map
 white_minus_nonwhite_values_mean <- lapply(white_minus_nonwhite_values, mean) %>% unlist()
@@ -1772,9 +1771,9 @@ compactness_reock_summary_long <- compactness_reock_summary_long %>%
 ```
 Congressional districts in Ohio for the 117th Congress had several low-compact districts, notably the 9th, 11th, and 13th Districts. Of note, all three of these districts were won by Democrats in 2020. Ohio's 5th congressional district was the most compact across all three measurements.
 
-**Polsby Popper.**
+**Polsby Popper.** Across all `r nrow(winners_by_run)` runs, the median Polsby Popper compactness score was `r round(median(compactness_polsby_popper_summary$Median), 3)`, compared to the median score of `r round(median(compactness_117_pp), 3)` for the districts in the 117th Congress. The median minimum and maximum values across the runs were `r round(median(compactness_polsby_popper_summary$Min), 3)` and `r round(median(compactness_polsby_popper_summary$Max), 3)`, compared to `r round(min(compactness_117_pp), 3)` and `r round(max(compactness_117_pp), 3)` for the actual districts, respectively. Overall, the procedurally generated maps were more compact, based on the Polsby Popper calculation method. Figure XX shows summary statistics across the `r nrow(winners_by_run)` runs and shows the summary statistic values of Ohio's 117th congressional districts in red.
 
-```{r compactness_pp_plot, echo=FALSE}
+```{r compactness_pp_plot, echo=FALSE, fig.align='center'}
 
 ggplot2::ggplot() +
   ggbeeswarm::geom_beeswarm(data = compactness_pp_summary_long,
@@ -1793,11 +1792,17 @@ ggplot2::ggplot() +
   ) +
   ylim(0, 1)
 
+min_over_actual_median_count <- sum(as.vector(compactness_polsby_popper_summary$Min) > median(compactness_117_pp))
+min_over_actual_median_perc <- 100 * min_over_actual_median_count / nrow(winners_by_run)
+
 ```
+
+Across the procedurally generated maps, `r min_over_actual_median_count` runs (`r round(min_over_actual_median_perc, 0)`%) had their least compact district as more compact than the median district from the 2020 election.
+
 
 **Schwartzberg.**
 
-```{r compactness_sch_plot, echo=FALSE}
+```{r compactness_sch_plot, echo=FALSE, fig.align='center'}
 
 ggplot2::ggplot() +
   ggbeeswarm::geom_beeswarm(data = compactness_sch_summary_long,
@@ -1820,7 +1825,7 @@ ggplot2::ggplot() +
 
 **Reock.**
 
-```{r compactness_reock_plot, echo=FALSE}
+```{r compactness_reock_plot, echo=FALSE, fig.align='center'}
 
 ggplot2::ggplot() +
   ggbeeswarm::geom_beeswarm(data = compactness_reock_summary_long,
